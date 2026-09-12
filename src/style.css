@@ -1,0 +1,91 @@
+:root {
+  font-family: "Trebuchet MS", ui-rounded, system-ui, sans-serif;
+  color: #3a2a1a;
+  background: #1a1020;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: radial-gradient(circle at 50% 20%, #3d2a55, #140c18 70%);
+}
+
+#app {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+canvas {
+  width: min(100vw, 960px);
+  height: auto;
+  image-rendering: pixelated;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px #0008;
+  outline: none;
+  background: #000;
+}
+
+.ui {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.panel {
+  pointer-events: auto;
+  background: #fff6e8ee;
+  border: 4px solid #3aa35a;
+  border-radius: 18px;
+  padding: 22px 26px;
+  max-width: 520px;
+  width: calc(100% - 32px);
+  text-align: center;
+  box-shadow: 0 10px 0 #2a1848;
+}
+
+h1 { margin: 0 0 8px; font-size: 2rem; color: #2a1848; }
+h2 { margin: 0 0 12px; color: #2a1848; }
+p { margin: 0 0 16px; }
+
+button {
+  font: inherit;
+  background: #d94a3a;
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 18px;
+  margin: 6px;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(1.08); }
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.card {
+  background: #fff;
+  color: #3a2a1a;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 3px solid #eadcc8;
+}
+
+.card.on { border-color: #3aa35a; background: #e7f6ea; }
+
+.card span { font-size: 0.85rem; color: #5a4a3a; }
+
+ol { text-align: left; }
