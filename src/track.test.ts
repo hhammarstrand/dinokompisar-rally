@@ -34,6 +34,14 @@ describe('tracks', () => {
       const w = t.waypoints[40]!
       expect(terrainAt(t, w.x, w.y)).toBe('road')
       expect(t.items.length).toBeGreaterThan(3)
+      let curbs = 0
+      let dashes = 0
+      for (const m of t.marks) {
+        if (m === 2) curbs++
+        if (m === 1) dashes++
+      }
+      expect(curbs).toBeGreaterThan(200)
+      expect(dashes).toBeGreaterThan(80)
     })
 
     it(`${id} paints the start line at the start, not the map center`, () => {

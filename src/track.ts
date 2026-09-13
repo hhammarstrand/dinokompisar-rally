@@ -17,6 +17,8 @@ export interface Track {
   waypoints: Waypoint[]
   items: Waypoint[]
   startLine: Waypoint[]
+  /** 0 none 1 center dash 2 curb */
+  marks: Uint8Array
   skyTop: string
   skyBot: string
   roadRgb: [number, number, number]
@@ -120,7 +122,7 @@ function makeStartLine(pts: Waypoint[]): Waypoint[] {
   return line
 }
 
-function finish(id: TrackId, name: string, size: number, pts: Waypoint[], cells: Uint8Array, items: Waypoint[], theme: Omit<Track, 'id' | 'name' | 'size' | 'cells' | 'start' | 'waypoints' | 'items' | 'startLine'>): Track {
+function finish(id: TrackId, name: string, size: number, pts: Waypoint[], cells: Uint8Array, items: Waypoint[], theme: Omit<Track, 'id' | 'name' | 'size' | 'cells' | 'start' | 'waypoints' | 'items' | 'startLine' | 'marks'>): Track {
   const start = pts[0]!
   const angle = heading(pts, 0)
   return {
@@ -132,8 +134,43 @@ function finish(id: TrackId, name: string, size: number, pts: Waypoint[], cells:
     waypoints: pts,
     items,
     startLine: makeStartLine(pts),
+    marks: bakeMarks(cells, size, pts),
     ...theme,
   }
+}
+
+function bakeMarks(cells: Uint8Array, size: number, pts: Waypoint[]): Uint8Array {
+  const marks = new Uint8Array(size * size)
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i]!
+    const n = pts[(i + 1) % pts.length]!
+    const steps = Math.max(1, Math.hypot(n.x - p.x, n.y - p.y) | 0)
+    for (let s = 0; s < steps; s++) {
+      const x = (p.x + ((n.x - p.x) * s) / steps) | 0
+      const y = (p.y + ((n.y - p.y) * s) / steps) | 0
+      if (x < 0 || y < 0 || x >= size || y >= size) continue
+      if (cells[y * size + x] !== ROAD) continue
+      if ((i + s) % 12 < 7) marks[y * size + x] = 1
+    }
+  }
+  for (let y = 1; y < size - 1; y++) {
+    for (let x = 1; x < size - 1; x++) {
+      const i = y * size + x
+      const v = cells[i]!
+      if (v !== ROAD && v !== BOOST && v !== ITEM) continue
+      const near =
+        cells[i - 1] === OFF ||
+        cells[i + 1] === OFF ||
+        cells[i - size] === OFF ||
+        cells[i + size] === OFF ||
+        cells[i - 1] === WALL ||
+        cells[i + 1] === WALL ||
+        cells[i - size] === WALL ||
+        cells[i + size] === WALL
+      if (near) marks[i] = 2
+    }
+  }
+  return marks
 }
 
 function scatter(cells: Uint8Array, size: number, pts: Waypoint[], offset: number, r: number, v: number, step: number): void {

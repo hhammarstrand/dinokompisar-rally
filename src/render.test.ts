@@ -5,6 +5,7 @@ import {
   getTouchButtons,
   hitTouch,
   pointerToCanvas,
+  playerSprite,
   project,
   tintCell,
   W,
@@ -58,6 +59,15 @@ describe('pointerToCanvas', () => {
     const p = pointerToCanvas(W, H, rect)
     expect(p.x).toBeCloseTo(W / 2)
     expect(p.y).toBeCloseTo(H / 2)
+  })
+})
+
+describe('playerSprite', () => {
+  it('sits in the lower third like a SNES kart', () => {
+    const p = playerSprite()
+    expect(p.x).toBe(W / 2)
+    expect(p.y).toBeGreaterThan(H * 0.6)
+    expect(p.s).toBeGreaterThan(20)
   })
 })
 

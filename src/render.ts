@@ -7,7 +7,7 @@ const H = 270
 const HORIZON = 92
 const CAM_H = 42
 const FOV = 220
-const CAM_BACK = 10
+const CAM_BACK = 18
 
 export type TouchKind = 'left' | 'right' | 'gas' | 'brake' | 'item'
 export interface Rect {
@@ -23,6 +23,10 @@ export function cameraBehind(x: number, y: number, angle: number): { x: number; 
     y: y - Math.sin(angle) * CAM_BACK,
     angle,
   }
+}
+
+export function playerSprite(): { x: number; y: number; s: number } {
+  return { x: W / 2, y: H - 70, s: 26 }
 }
 
 export function pointerToCanvas(
@@ -230,25 +234,21 @@ export function drawWorld(
         r = tinted[0]
         g = tinted[1]
         b = tinted[2]
-        const stripe = ((ix >> 4) + (iy >> 4)) & 1
+        const mark = track.marks[iy * size + ix]!
         if ((v === 1 || v === 3 || v === 4) && onStartLine(track, ix, iy)) {
           const chk = ((ix >> 3) + (iy >> 3)) & 1
-          r = chk ? 250 : 30
-          g = chk ? 250 : 30
-          b = chk ? 250 : 30
-        } else if (v === 1 && stripe) {
-          r = Math.min(255, r + 12)
-          g = Math.min(255, g + 12)
-          b = Math.min(255, b + 12)
-        }
-        if (v === 2) {
-          const left = ix > 0 ? cells[iy * size + (ix - 1)] : 0
-          const up = iy > 0 ? cells[(iy - 1) * size + ix] : 0
-          if (left === 1 || up === 1) {
-            r = Math.min(255, r + 50)
-            g = Math.min(255, g + 40)
-            b = Math.min(255, b + 20)
-          }
+          r = chk ? 250 : 24
+          g = chk ? 250 : 24
+          b = chk ? 250 : 24
+        } else if (mark === 2) {
+          const chk = ((ix >> 2) + (iy >> 2)) & 1
+          r = chk ? 220 : 245
+          g = chk ? 36 : 245
+          b = chk ? 36 : 245
+        } else if (mark === 1) {
+          r = 255
+          g = 230
+          b = 70
         }
       }
       const o = dest + x * 4
@@ -359,7 +359,7 @@ export function drawKart(
 ): void {
   const p = project(k.x, k.y, camX, camY, camA)
   if (!p) return
-  const s = 10 * p.scale
+  const s = 14 * p.scale
   ctx.save()
   ctx.translate(p.sx, p.sy)
   ctx.rotate(k.angle - camA)
@@ -542,6 +542,66 @@ export function drawKart(
     ctx.arc(0, -s * 0.05, s * 0.72, 0, Math.PI * 2)
     ctx.stroke()
   }
+  ctx.restore()
+}
+
+export function drawPlayerKart(ctx: CanvasRenderingContext2D, ch: Character): void {
+  const p = playerSprite()
+  const s = p.s
+  ctx.save()
+  ctx.translate(p.x, p.y)
+  ctx.fillStyle = 'rgba(0,0,0,0.28)'
+  ctx.beginPath()
+  ctx.ellipse(0, s * 0.62, s * 0.85, s * 0.22, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#2a2a2a'
+  ctx.beginPath()
+  ctx.ellipse(-s * 0.38, s * 0.42, s * 0.22, s * 0.14, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.ellipse(s * 0.38, s * 0.42, s * 0.22, s * 0.14, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = ch.body
+  ctx.beginPath()
+  ctx.ellipse(0, s * 0.08, s * 0.62, s * 0.48, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = ch.belly
+  ctx.beginPath()
+  ctx.ellipse(0, s * 0.18, s * 0.32, s * 0.22, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = ch.body
+  ctx.beginPath()
+  ctx.ellipse(0, -s * 0.42, s * 0.42, s * 0.38, 0, 0, Math.PI * 2)
+  ctx.fill()
+  if (ch.id === 'stega') {
+    ctx.fillStyle = '#1a3fa0'
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath()
+      ctx.moveTo(i * s * 0.12 - s * 0.06, -s * 0.55)
+      ctx.lineTo(i * s * 0.12, -s * 0.95)
+      ctx.lineTo(i * s * 0.12 + s * 0.06, -s * 0.55)
+      ctx.fill()
+    }
+  }
+  ctx.fillStyle = '#111'
+  ctx.beginPath()
+  ctx.arc(-s * 0.16, -s * 0.48, s * 0.08, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(s * 0.16, -s * 0.48, s * 0.08, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#fff'
+  ctx.beginPath()
+  ctx.arc(-s * 0.14, -s * 0.51, s * 0.03, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(s * 0.18, -s * 0.51, s * 0.03, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#fff8c0'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(0, -s * 0.1, s * 0.82, 0, Math.PI * 2)
+  ctx.stroke()
   ctx.restore()
 }
 

@@ -17,6 +17,7 @@ import {
   drawItemBox,
   drawKart,
   drawMinimap,
+  drawPlayerKart,
   drawPortrait,
   drawPuddle,
   drawTouchButtons,
@@ -227,7 +228,8 @@ export function boot(root: HTMLElement): void {
       return db - da
     })
     for (const r of sortedDraw) {
-      drawKart(ctx, r.kart, character(r.charId), cam.x, cam.y, cam.angle, r === racers[0])
+      if (r === racers[0]) continue
+      drawKart(ctx, r.kart, character(r.charId), cam.x, cam.y, cam.angle, false)
     }
     const place = order.findIndex((r) => r === racers[0]) + 1
     const held = items.held[0]
@@ -262,6 +264,7 @@ export function boot(root: HTMLElement): void {
     }
 
     drawMinimap(ctx, track, racers, p)
+    drawPlayerKart(ctx, character(racers[0]!.charId))
     drawTouchButtons(ctx)
   }
 
