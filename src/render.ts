@@ -325,4 +325,186 @@ export function drawHud(
   ctx.fillText('pilar/WASD  gas ·  Mellanslag item ·  vänster/höger styr', 14, H - 14)
 }
 
+/** Rita ett porträtt av en karaktär på en canvas (används i menyn). */
+export function drawPortrait(
+  ctx: CanvasRenderingContext2D,
+  ch: Character,
+  size: number,
+): void {
+  const cx = size / 2
+  const cy = size / 2
+  const s = size * 0.45
+
+  // Skugga
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'
+  ctx.beginPath()
+  ctx.ellipse(cx, cy + s * 0.48, s * 0.55, s * 0.14, 0, 0, Math.PI * 2)
+  ctx.fill()
+
+  if (ch.id === 'dino') {
+    // Grön liten rund dino — porträtt
+    ctx.fillStyle = ch.body
+    ctx.beginPath()
+    ctx.arc(cx, cy - s * 0.05, s * 0.62, 0, Math.PI * 2)
+    ctx.fill()
+    // Buk
+    ctx.fillStyle = ch.belly
+    ctx.beginPath()
+    ctx.arc(cx, cy + s * 0.15, s * 0.34, 0, Math.PI * 2)
+    ctx.fill()
+    // Ögon (glada)
+    ctx.fillStyle = '#111'
+    ctx.beginPath()
+    ctx.arc(cx - s * 0.18, cy - s * 0.18, s * 0.1, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(cx + s * 0.18, cy - s * 0.18, s * 0.1, 0, Math.PI * 2)
+    ctx.fill()
+    // Highlight
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.arc(cx - s * 0.14, cy - s * 0.23, s * 0.045, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(cx + s * 0.22, cy - s * 0.23, s * 0.045, 0, Math.PI * 2)
+    ctx.fill()
+    // Mun (smile)
+    ctx.strokeStyle = '#111'
+    ctx.lineWidth = 1.8
+    ctx.beginPath()
+    ctx.arc(cx, cy + s * 0.02, s * 0.2, 0.25, Math.PI - 0.25)
+    ctx.stroke()
+    // Stjärt (liten)
+    ctx.fillStyle = ch.body
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.58, cy + s * 0.18, s * 0.16, s * 0.09, -0.3, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (ch.id === 'rex') {
+    // Röd-orange T-Rex — porträtt
+    ctx.fillStyle = ch.body
+    // Kropp
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.05, cy + s * 0.1, s * 0.48, s * 0.42, 0, 0, Math.PI * 2)
+    ctx.fill()
+    // Huvud (stort, snett)
+    ctx.beginPath()
+    ctx.ellipse(cx + s * 0.18, cy - s * 0.22, s * 0.36, s * 0.26, 0, 0, Math.PI * 2)
+    ctx.fill()
+    // Käke
+    ctx.beginPath()
+    ctx.ellipse(cx + s * 0.25, cy - s * 0.1, s * 0.26, s * 0.11, 0, 0, Math.PI)
+    ctx.fill()
+    // Öga
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.arc(cx + s * 0.28, cy - s * 0.3, s * 0.085, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#111'
+    ctx.beginPath()
+    ctx.arc(cx + s * 0.3, cy - s * 0.3, s * 0.048, 0, Math.PI * 2)
+    ctx.fill()
+    // Små armar
+    ctx.fillStyle = ch.body
+    ctx.beginPath()
+    ctx.ellipse(cx + s * 0.1, cy + s * 0.22, s * 0.075, s * 0.16, 0.3, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.02, cy + s * 0.26, s * 0.065, s * 0.14, -0.2, 0, Math.PI * 2)
+    ctx.fill()
+    // Svans
+    ctx.fillStyle = ch.body
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.48, cy + s * 0.08, s * 0.32, s * 0.11, -0.2, 0, Math.PI * 2)
+    ctx.fill()
+    // Buk
+    ctx.fillStyle = ch.belly
+    ctx.beginPath()
+    ctx.ellipse(cx + s * 0.02, cy + s * 0.2, s * 0.28, s * 0.18, 0, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (ch.id === 'stega') {
+    // Blå med taggar — porträtt
+    ctx.fillStyle = ch.body
+    // Kropp
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.05, cy + s * 0.08, s * 0.46, s * 0.4, 0, 0, Math.PI * 2)
+    ctx.fill()
+    // Taggar på ryggen
+    ctx.fillStyle = '#1a3fa0'
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath()
+      ctx.moveTo(cx + i * s * 0.14 - s * 0.055, cy - s * 0.38)
+      ctx.lineTo(cx + i * s * 0.14, cy - s * 0.58 - Math.abs(i) * s * 0.035)
+      ctx.lineTo(cx + i * s * 0.14 + s * 0.055, cy - s * 0.38)
+      ctx.closePath()
+      ctx.fill()
+    }
+    // Huvud
+    ctx.fillStyle = ch.body
+    ctx.beginPath()
+    ctx.ellipse(cx + s * 0.2, cy - s * 0.15, s * 0.3, s * 0.22, 0, 0, Math.PI * 2)
+    ctx.fill()
+    // Öga
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.arc(cx + s * 0.28, cy - s * 0.22, s * 0.065, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#111'
+    ctx.beginPath()
+    ctx.arc(cx + s * 0.3, cy - s * 0.22, s * 0.038, 0, Math.PI * 2)
+    ctx.fill()
+    // Buk
+    ctx.fillStyle = ch.belly
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.05, cy + s * 0.18, s * 0.26, s * 0.2, 0, 0, Math.PI * 2)
+    ctx.fill()
+    // Stjärt
+    ctx.fillStyle = ch.body
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.48, cy + s * 0.06, s * 0.28, s * 0.095, -0.15, 0, Math.PI * 2)
+    ctx.fill()
+  } else if (ch.id === 'laga') {
+    // Stor brun T-Rex — porträtt
+    ctx.fillStyle = ch.body
+    // Stort kropp
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.05, cy + s * 0.1, s * 0.56, s * 0.48, 0, 0, Math.PI * 2)
+    ctx.fill()
+    // Huvud (större än Rex)
+    ctx.beginPath()
+    ctx.ellipse(cx + s * 0.22, cy - s * 0.26, s * 0.4, s * 0.3, 0, 0, Math.PI * 2)
+    ctx.fill()
+    // Käke
+    ctx.beginPath()
+    ctx.ellipse(cx + s * 0.3, cy - s * 0.1, s * 0.3, s * 0.13, 0, 0, Math.PI)
+    ctx.fill()
+    // Öga (stor)
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.arc(cx + s * 0.32, cy - s * 0.34, s * 0.09, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#111'
+    ctx.beginPath()
+    ctx.arc(cx + s * 0.34, cy - s * 0.34, s * 0.05, 0, Math.PI * 2)
+    ctx.fill()
+    // Armar (små)
+    ctx.fillStyle = ch.body
+    ctx.beginPath()
+    ctx.ellipse(cx + s * 0.12, cy + s * 0.24, s * 0.085, s * 0.18, 0.3, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.02, cy + s * 0.28, s * 0.075, s * 0.16, -0.2, 0, Math.PI * 2)
+    ctx.fill()
+    // Svans (stor)
+    ctx.fillStyle = ch.body
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.56, cy + s * 0.12, s * 0.4, s * 0.13, -0.15, 0, Math.PI * 2)
+    ctx.fill()
+    // Buk
+    ctx.fillStyle = ch.belly
+    ctx.beginPath()
+    ctx.ellipse(cx - s * 0.05, cy + s * 0.22, s * 0.34, s * 0.24, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
 export { W, H }

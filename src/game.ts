@@ -10,7 +10,7 @@ import {
   type ItemWorld,
 } from './items.ts'
 import { bounceFromWall, dist, stepKart, type KartState } from './physics.ts'
-import { drawHud, drawKart, drawWorld, H, W } from './render.ts'
+import { drawHud, drawKart, drawPortrait, drawWorld, H, W } from './render.ts'
 import { buildTrack, TRACKS, terrainAt, type Track, type TrackId } from './track.ts'
 
 const LAPS = 3
@@ -49,6 +49,13 @@ export function boot(root: HTMLElement): void {
   let now = 0
   let spaceLatch = false
   let places: string[] = []
+
+  // Puff för att rita karaktärs-porträtt i menyn
+  const portraitCanvas = document.createElement('canvas')
+  portraitCanvas.width = 80
+  portraitCanvas.height = 80
+  const portraitCtx = portraitCanvas.getContext('2d')
+  if (!portraitCtx) throw new Error('ingen portraitCtx')
 
   window.addEventListener('keydown', (e) => {
     if (e.key === ' ' && screen === 'race') {
@@ -199,20 +206,26 @@ export function boot(root: HTMLElement): void {
           <button data-go="char">Kör!</button>
         </div>`
     } else if (screen === 'char') {
+      const charCards = CHARACTERS.map((c) => {
+        const canvasId = `portrait-${c.id}`
+        return `\n              <button class="card ${c.id === playerChar ? 'on' : ''}" data-char="${c.id}">\n                <canvas id="${canvasId}" width="80" height="80"></canvas>\n                <b>${c.name}</b>\n                <span>${c.blurb}</span>\n              </button>`
+      }).join('')
       overlay.innerHTML = `
         <div class="panel">
           <h2>Välj kart</h2>
           <div class="grid">
-            ${CHARACTERS.map(
-              (c) => `
-              <button class="card ${c.id === playerChar ? 'on' : ''}" data-char="${c.id}">
-                <b>${c.name}</b>
-                <span>${c.blurb}</span>
-              </button>`,
-            ).join('')}
+            ${charCards}
           </div>
           <button data-go="track">Nästa</button>
         </div>`
+      // Rita porträtt på canvas
+      for (const c of CHARACTERS) {
+        const el = document.getElementById(`portrait-${c.id}`) as HTMLCanvasElement | null
+        if (el && portraitCtx) {
+          portraitCtx.clearRect(0, 0, 80, 80)
+          drawPortrait(portraitCtx, c, 80)
+        }
+      }
     } else if (screen === 'track') {
       overlay.innerHTML = `
         <div class="panel">
