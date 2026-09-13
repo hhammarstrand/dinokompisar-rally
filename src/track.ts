@@ -81,7 +81,8 @@ function pathPoints(
 
 function layRoad(cells: Uint8Array, size: number, pts: Waypoint[], width: number): void {
   cells.fill(OFF)
-  for (const p of pts) stamp(cells, size, p.x, p.y, width + 10, WALL)
+  for (const p of pts) stamp(cells, size, p.x, p.y, width + 14, WALL)
+  for (const p of pts) stamp(cells, size, p.x, p.y, width + 4, OFF) // kant-zon
   for (const p of pts) stamp(cells, size, p.x, p.y, width, ROAD)
   const edge = 18
   for (let y = 0; y < size; y++) {
@@ -122,14 +123,21 @@ function makeLoop(
   }
   const items = everyNth(pts, 60, 10)
   for (const p of items) stamp(cells, size, p.x, p.y, 7, ITEM)
+  // Start/mål-linje vid waypoint 0
   const start = pts[0]!
   const nxt = pts[8]!
+  const angle = Math.atan2(nxt.y - start.y, nxt.x - start.x)
+  for (let i = -3; i <= 3; i++) {
+    const px = start.x + Math.cos(angle + Math.PI / 2) * i * 5
+    const py = start.y + Math.sin(angle + Math.PI / 2) * i * 5
+    stamp(cells, size, px | 0, py | 0, 3, ROAD)
+  }
   return {
     id,
     name,
     size,
     cells,
-    start: { ...start, angle: Math.atan2(nxt.y - start.y, nxt.x - start.x) },
+    start: { ...start, angle },
     waypoints: pts,
     items,
     ...theme,
@@ -150,14 +158,21 @@ function makeWiggle(): Track {
   layRoad(cells, size, pts, 34)
   const items = everyNth(pts, 50, 8)
   for (const p of items) stamp(cells, size, p.x, p.y, 7, ITEM)
+  // Start/mål-linje
   const start = pts[0]!
   const nxt = pts[6]!
+  const angle = Math.atan2(nxt.y - start.y, nxt.x - start.x)
+  for (let i = -3; i <= 3; i++) {
+    const px = start.x + Math.cos(angle + Math.PI / 2) * i * 5
+    const py = start.y + Math.sin(angle + Math.PI / 2) * i * 5
+    stamp(cells, size, px | 0, py | 0, 3, ROAD)
+  }
   return {
     id: 'skog',
     name: 'Den mörka skogen',
     size,
     cells,
-    start: { ...start, angle: Math.atan2(nxt.y - start.y, nxt.x - start.x) },
+    start: { ...start, angle },
     waypoints: pts,
     items,
     skyTop: '#102010',
@@ -184,14 +199,21 @@ function makeEight(): Track {
   for (const p of everyNth(pts, 70, 15)) stamp(cells, size, p.x, p.y, 16, BOOST)
   const items = everyNth(pts, 55, 4)
   for (const p of items) stamp(cells, size, p.x, p.y, 7, ITEM)
+  // Start/mål-linje
   const start = pts[0]!
   const nxt = pts[7]!
+  const angle = Math.atan2(nxt.y - start.y, nxt.x - start.x)
+  for (let i = -3; i <= 3; i++) {
+    const px = start.x + Math.cos(angle + Math.PI / 2) * i * 5
+    const py = start.y + Math.sin(angle + Math.PI / 2) * i * 5
+    stamp(cells, size, px | 0, py | 0, 3, ROAD)
+  }
   return {
     id: 'moln',
     name: 'Molntoppen',
     size,
     cells,
-    start: { ...start, angle: Math.atan2(nxt.y - start.y, nxt.x - start.x) },
+    start: { ...start, angle },
     waypoints: pts,
     items,
     skyTop: '#6ec8f0',

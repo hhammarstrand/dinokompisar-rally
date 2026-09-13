@@ -78,9 +78,23 @@ export function drawWorld(
         b = rgb[2]!
         const stripe = ((ix >> 4) + (iy >> 4)) & 1
         if (v === 1 && stripe) {
-          r = Math.min(255, r + 12)
-          g = Math.min(255, g + 12)
-          b = Math.min(255, b + 12)
+          // Start/mål-linje (vit streckad vid waypoint 0-området)
+          const isStartLine = ix > 480 && ix < 560 && iy > 480 && iy < 560
+          if (isStartLine) {
+            r = 255
+            g = 255
+            b = 255
+          } else {
+            r = Math.min(255, r + 12)
+            g = Math.min(255, g + 12)
+            b = Math.min(255, b + 12)
+          }
+        }
+        // Vägkant (OFF-cell intill ROAD)
+        if (v === 2 && ix > 0 && cells[iy * size + (ix - 1)] === 1) {
+          r = Math.max(0, r - 30)
+          g = Math.max(0, g - 30)
+          b = Math.max(0, b - 30)
         }
       }
       const o = dest + x * 4
@@ -93,10 +107,79 @@ export function drawWorld(
     }
   }
   ctx.putImageData(img, 0, HORIZON)
+
+  // Dekorationer per bana (ritas ovanpå golvet)
+  drawDecorations(ctx, track, camX, camY, camA)
+
   if (fog) {
     ctx.fillStyle = 'rgba(220,220,230,0.72)'
     ctx.fillRect(0, 0, W, H)
   }
+}
+
+function drawDecorations(ctx: CanvasRenderingContext2D, track: Track, camX: number, camY: number, camA: number): void {
+  // Rita dekorationer baserat på bana-id
+  const decorations = track.id === 'grotta' ? drawCrystal : track.id === 'skog' ? drawTree : drawCloud
+  // Placera några dekorationer längs banan (vid waypoints)
+  for (let i = 0; i < track.waypoints.length; i += 30) {
+    const wp = track.waypoints[i]!
+    const p = project(wp.x, wp.y, camX, camY, camA)
+    if (!p) continue
+    decorations(ctx, p.sx, p.sy, p.scale)
+  }
+}
+
+function drawCrystal(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
+  const s = 8 * scale
+  ctx.fillStyle = '#f0c060'
+  ctx.beginPath()
+  ctx.moveTo(x, y - s * 2)
+  ctx.lineTo(x + s * 0.5, y)
+  ctx.lineTo(x - s * 0.5, y)
+  ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = '#ffe8a0'
+  ctx.beginPath()
+  ctx.moveTo(x, y - s * 2)
+  ctx.lineTo(x + s * 0.3, y - s * 0.5)
+  ctx.lineTo(x - s * 0.5, y)
+  ctx.closePath()
+  ctx.fill()
+}
+
+function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
+  const s = 10 * scale
+  // Stam
+  ctx.fillStyle = '#4a3520'
+  ctx.fillRect(x - s * 0.15, y - s * 0.5, s * 0.3, s * 0.8)
+  // Krontyp (tre lager)
+  ctx.fillStyle = '#2d5a27'
+  ctx.beginPath()
+  ctx.moveTo(x, y - s * 2.5)
+  ctx.lineTo(x + s * 0.8, y - s * 0.8)
+  ctx.lineTo(x - s * 0.8, y - s * 0.8)
+  ctx.closePath()
+  ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(x, y - s * 1.8)
+  ctx.lineTo(x + s * 0.7, y - s * 0.3)
+  ctx.lineTo(x - s * 0.7, y - s * 0.3)
+  ctx.closePath()
+  ctx.fill()
+}
+
+function drawCloud(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
+  const s = 12 * scale
+  ctx.fillStyle = 'rgba(255,255,255,0.8)'
+  ctx.beginPath()
+  ctx.arc(x, y, s * 0.5, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(x + s * 0.4, y - s * 0.15, s * 0.4, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(x - s * 0.35, y - s * 0.1, s * 0.35, 0, Math.PI * 2)
+  ctx.fill()
 }
 
 export function drawKart(
