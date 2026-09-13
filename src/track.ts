@@ -137,11 +137,14 @@ function finish(id: TrackId, name: string, size: number, pts: Waypoint[], cells:
 }
 
 function scatter(cells: Uint8Array, size: number, pts: Waypoint[], offset: number, r: number, v: number, step: number): void {
+  const cx = size / 2
+  const cy = size / 2
   for (let i = 0; i < pts.length; i += step) {
-    const a = heading(pts, i)
     const p = pts[i]!
-    const side = i % (step * 2) === 0 ? 1 : -1
-    stamp(cells, size, p.x + Math.cos(a + Math.PI / 2) * offset * side, p.y + Math.sin(a + Math.PI / 2) * offset * side, r, v)
+    const ox = p.x - cx
+    const oy = p.y - cy
+    const len = Math.hypot(ox, oy) || 1
+    stamp(cells, size, p.x + (ox / len) * offset, p.y + (oy / len) * offset, r, v)
   }
 }
 
@@ -149,9 +152,13 @@ function makeGrotta(): Track {
   const size = 1024
   const cx = size / 2
   const cy = size / 2
-  const pts = pathPoints(360, (_i, u) => {
+  const pts = pathPoints(400, (_i, u) => {
     const a = u * Math.PI * 2
-    return { x: cx + Math.cos(a) * size * 0.4, y: cy + Math.sin(a) * size * 0.24 }
+    const pinch = 0.52 + 0.48 * Math.cos(2 * a)
+    return {
+      x: cx + Math.cos(a) * 390 * pinch,
+      y: cy + Math.sin(a) * 200 * (0.75 + 0.35 * Math.abs(Math.cos(a))),
+    }
   })
   const cells = new Uint8Array(size * size)
   layRoad(cells, size, pts, 50)
@@ -170,11 +177,12 @@ function makeGrotta(): Track {
 
 function makeSkog(): Track {
   const size = 1024
-  const pts = pathPoints(420, (_i, u) => {
+  const pts = pathPoints(480, (_i, u) => {
     const a = u * Math.PI * 2
+    const squircle = 0.78 + 0.22 * Math.cos(4 * a)
     return {
-      x: 512 + Math.cos(a) * (250 + 28 * Math.sin(a * 3)),
-      y: 512 + Math.sin(a) * (330 + 18 * Math.sin(a * 2)),
+      x: 512 + Math.cos(a) * 260 * squircle + Math.cos(a * 3) * 48,
+      y: 512 + Math.sin(a) * 310 * squircle + Math.sin(a * 5) * 62,
     }
   })
   const cells = new Uint8Array(size * size)

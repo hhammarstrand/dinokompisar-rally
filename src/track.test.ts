@@ -49,7 +49,7 @@ describe('tracks', () => {
     })
   }
 
-  it('grotta is a wide oval, skog is narrower and wobblier, moln has more boost', () => {
+  it('grotta is two chambers, skog kinks more, moln has more boost', () => {
     const grotta = buildTrack('grotta')
     const skog = buildTrack('skog')
     const moln = buildTrack('moln')
@@ -57,6 +57,18 @@ describe('tracks', () => {
     const s = bbox(skog.waypoints)
     expect(g.w / g.h).toBeGreaterThan(1.15)
     expect(s.w / s.h).toBeLessThan(g.w / g.h)
+    const radii = grotta.waypoints.map((p) => Math.hypot(p.x - grotta.size / 2, p.y - grotta.size / 2))
+    expect(Math.max(...radii) / Math.min(...radii)).toBeGreaterThan(1.85)
+    const len = (pts: { x: number; y: number }[]) => {
+      let n = 0
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i]!
+        const b = pts[(i + 1) % pts.length]!
+        n += Math.hypot(a.x - b.x, a.y - b.y)
+      }
+      return n
+    }
+    expect(len(skog.waypoints) / (s.w + s.h)).toBeGreaterThan(len(grotta.waypoints) / (g.w + g.h))
     expect(count(moln, 3)).toBeGreaterThan(count(grotta, 3))
     expect(count(skog, 1)).toBeLessThan(count(grotta, 1))
   })

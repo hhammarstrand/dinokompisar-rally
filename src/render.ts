@@ -1,6 +1,6 @@
 import type { Character } from './characters.ts'
 import type { KartState } from './physics.ts'
-import { onStartLine, type Track } from './track.ts'
+import { onStartLine, type Track, type TrackId } from './track.ts'
 
 const W = 480
 const H = 270
@@ -36,6 +36,79 @@ export function pointerToCanvas(
   }
 }
 
+function clampByte(n: number): number {
+  return Math.max(0, Math.min(255, n | 0))
+}
+
+export function tintCell(
+  id: TrackId,
+  v: number,
+  ix: number,
+  iy: number,
+  base: [number, number, number],
+): [number, number, number] {
+  let r = base[0]
+  let g = base[1]
+  let b = base[2]
+  const n = (ix * 374761393 + iy * 668265263) >>> 0
+  const grain = n & 31
+  if (id === 'grotta') {
+    if (v === 1) {
+      const tile = ((ix >> 3) ^ (iy >> 3)) & 1
+      r += tile ? 22 : -10
+      b += 14
+      if ((n & 255) > 250) {
+        r = 255
+        g = 214
+        b = 90
+      }
+    } else if (v === 2) {
+      r += 18
+      g += 4
+      b -= 6
+    } else if (v === 0) {
+      r += (ix >> 2) & 12
+      b += 8
+    }
+  } else if (id === 'skog') {
+    if (v === 1) {
+      r += (grain % 13) - 6
+      g += (grain % 7) - 3
+    } else if (v === 2) {
+      g += 28 + (grain % 24)
+      r -= 6
+      if (n % 11 === 0) {
+        r -= 24
+        g -= 36
+        b -= 18
+      }
+    } else if (v === 0) {
+      g += 10
+      r -= 8
+    }
+  } else {
+    if (v === 1) {
+      r += 10
+      g += 10
+      b += 16
+      if (((ix >> 4) + (iy >> 4)) & 1) {
+        r -= 10
+        g -= 8
+      }
+    } else if (v === 2) {
+      const c = 188 + (grain % 40)
+      r = c
+      g = Math.min(255, c + 12)
+      b = 255
+    } else if (v === 3) {
+      r = 255
+      g = 224
+      b = 64
+    }
+  }
+  return [clampByte(r), clampByte(g), clampByte(b)]
+}
+
 export function project(
   wx: number,
   wy: number,
@@ -53,9 +126,62 @@ export function project(
   const z = forward / 8
   const sx = W / 2 + (right / (z * 1.15)) * FOV
   const sy = HORIZON + CAM_H / z - 1
-  const scale = Math.max(0.35, Math.min(3.2, 18 / forward))
+  const scale = Math.max(0.7, Math.min(4.2, 26 / forward))
   if (sy < HORIZON - 8 || sy > H + 30) return null
   return { sx, sy, scale }
+}
+
+function drawSky(ctx: CanvasRenderingContext2D, track: Track): void {
+  const sky = ctx.createLinearGradient(0, 0, 0, HORIZON)
+  sky.addColorStop(0, track.skyTop)
+  sky.addColorStop(1, track.skyBot)
+  ctx.fillStyle = sky
+  ctx.fillRect(0, 0, W, HORIZON)
+
+  if (track.id === 'grotta') {
+    ctx.fillStyle = '#1a1028'
+    for (let i = 0; i < 14; i++) {
+      const x = 8 + i * 36
+      const h = 18 + ((i * 17) % 28)
+      ctx.beginPath()
+      ctx.moveTo(x - 10, 0)
+      ctx.lineTo(x, h)
+      ctx.lineTo(x + 10, 0)
+      ctx.fill()
+    }
+    const glow = ctx.createRadialGradient(W * 0.7, HORIZON - 4, 4, W * 0.7, HORIZON - 4, 70)
+    glow.addColorStop(0, 'rgba(255,200,90,0.55)')
+    glow.addColorStop(1, 'rgba(255,200,90,0)')
+    ctx.fillStyle = glow
+    ctx.fillRect(0, 0, W, HORIZON)
+  } else if (track.id === 'skog') {
+    ctx.fillStyle = '#0c1c0c'
+    ctx.beginPath()
+    ctx.moveTo(0, HORIZON)
+    for (let x = 0; x <= W; x += 14) {
+      const peak = HORIZON - 22 - ((x * 13) % 26)
+      ctx.lineTo(x, peak)
+      ctx.lineTo(x + 7, HORIZON - 8)
+    }
+    ctx.lineTo(W, HORIZON)
+    ctx.closePath()
+    ctx.fill()
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'
+    const clouds = [
+      [70, 28, 28],
+      [180, 22, 22],
+      [300, 34, 26],
+      [400, 20, 18],
+    ]
+    for (const [x, y, s] of clouds) {
+      ctx.beginPath()
+      ctx.arc(x, y, s, 0, Math.PI * 2)
+      ctx.arc(x + s * 0.7, y + 4, s * 0.75, 0, Math.PI * 2)
+      ctx.arc(x - s * 0.6, y + 6, s * 0.6, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
 }
 
 export function drawWorld(
@@ -67,11 +193,9 @@ export function drawWorld(
   fog: boolean,
 ): void {
   ctx.imageSmoothingEnabled = false
-  const sky = ctx.createLinearGradient(0, 0, 0, HORIZON)
-  sky.addColorStop(0, track.skyTop)
-  sky.addColorStop(1, track.skyBot)
-  ctx.fillStyle = sky
-  ctx.fillRect(0, 0, W, HORIZON)
+  drawSky(ctx, track)
+  ctx.fillStyle = `rgb(${track.offRgb[0]},${track.offRgb[1]},${track.offRgb[2]})`
+  ctx.fillRect(0, HORIZON, W, H - HORIZON)
 
   const img = ctx.getImageData(0, HORIZON, W, H - HORIZON)
   const pix = img.data
@@ -102,9 +226,10 @@ export function drawWorld(
         const v = cells[iy * size + ix]!
         const rgb =
           v === 1 ? track.roadRgb : v === 2 ? track.offRgb : v === 3 ? track.boostRgb : v === 4 ? [220, 80, 180] : track.wallRgb
-        r = rgb[0]!
-        g = rgb[1]!
-        b = rgb[2]!
+        const tinted = tintCell(track.id, v, ix, iy, rgb as [number, number, number])
+        r = tinted[0]
+        g = tinted[1]
+        b = tinted[2]
         const stripe = ((ix >> 4) + (iy >> 4)) & 1
         if ((v === 1 || v === 3 || v === 4) && onStartLine(track, ix, iy)) {
           const chk = ((ix >> 3) + (iy >> 3)) & 1
@@ -148,23 +273,30 @@ export function drawWorld(
 
 function drawDecorations(ctx: CanvasRenderingContext2D, track: Track, camX: number, camY: number, camA: number): void {
   const decorations = track.id === 'grotta' ? drawCrystal : track.id === 'skog' ? drawTree : drawCloud
-  const step = track.id === 'skog' ? 8 : 10
-  const offset = track.id === 'moln' ? 36 : 58
+  const step = track.id === 'skog' ? 4 : 5
+  const near = track.id === 'moln' ? 32 : 52
+  const far = track.id === 'moln' ? 70 : 96
+  const cx = track.size / 2
+  const cy = track.size / 2
   for (let i = 0; i < track.waypoints.length; i += step) {
     const wp = track.waypoints[i]!
-    const nxt = track.waypoints[(i + 4) % track.waypoints.length]!
-    const a = Math.atan2(nxt.y - wp.y, nxt.x - wp.x)
-    const side = i % (step * 2) === 0 ? 1 : -1
-    const x = wp.x + Math.cos(a + Math.PI / 2) * offset * side
-    const y = wp.y + Math.sin(a + Math.PI / 2) * offset * side
-    const p = project(x, y, camX, camY, camA)
-    if (!p) continue
-    decorations(ctx, p.sx, p.sy, p.scale)
+    const ox = wp.x - cx
+    const oy = wp.y - cy
+    const len = Math.hypot(ox, oy) || 1
+    const ux = ox / len
+    const uy = oy / len
+    for (const offset of [near, far]) {
+      const x = wp.x + ux * offset
+      const y = wp.y + uy * offset
+      const p = project(x, y, camX, camY, camA)
+      if (!p) continue
+      decorations(ctx, p.sx, p.sy, p.scale * (offset === far ? 1.35 : 1))
+    }
   }
 }
 
 function drawCrystal(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
-  const s = 8 * scale
+  const s = 16 * scale
   ctx.fillStyle = '#f0c060'
   ctx.beginPath()
   ctx.moveTo(x, y - s * 2)
@@ -182,7 +314,7 @@ function drawCrystal(ctx: CanvasRenderingContext2D, x: number, y: number, scale:
 }
 
 function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
-  const s = 10 * scale
+  const s = 18 * scale
   // Stam
   ctx.fillStyle = '#4a3520'
   ctx.fillRect(x - s * 0.15, y - s * 0.5, s * 0.3, s * 0.8)
@@ -203,7 +335,7 @@ function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, scale: nu
 }
 
 function drawCloud(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
-  const s = 12 * scale
+  const s = 20 * scale
   ctx.fillStyle = 'rgba(255,255,255,0.8)'
   ctx.beginPath()
   ctx.arc(x, y, s * 0.5, 0, Math.PI * 2)
@@ -230,6 +362,7 @@ export function drawKart(
   const s = 10 * p.scale
   ctx.save()
   ctx.translate(p.sx, p.sy)
+  ctx.rotate(k.angle - camA)
 
   // Skugga
   ctx.fillStyle = 'rgba(0,0,0,0.25)'

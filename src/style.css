@@ -145,6 +145,17 @@ button:active {
   color: #7a5a3a;
 }
 
+.swatch {
+  display: block;
+  height: 36px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  border: 2px solid #fff6e8;
+}
+.swatch.grotta { background: linear-gradient(180deg, #2a1848 0%, #e8b86a 100%); }
+.swatch.skog { background: linear-gradient(180deg, #102010 0%, #3d6b3a 100%); }
+.swatch.moln { background: linear-gradient(180deg, #6ec8f0 0%, #f7f3ea 100%); }
+
 .track-card {
   background: linear-gradient(135deg, #f0f8ff 0%, #e0f0ff 100%);
   border-color: #b8d8f0;

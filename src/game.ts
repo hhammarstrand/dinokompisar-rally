@@ -25,6 +25,7 @@ import {
   H,
   W,
 } from './render.ts'
+import { beep, countdownHz, goHz, itemBeep, resumeSfx } from './sfx.ts'
 import { buildTrack, TRACKS, terrainAt, type Track, type TrackId } from './track.ts'
 
 const LAPS = 3
@@ -68,6 +69,7 @@ export function boot(root: HTMLElement): void {
   let countdown: Countdown | null = null
   let countdownTimer = 0
   let podiumWait = 0
+  let lastBeep = -1
 
   function spawn(): void {
     track = buildTrack(trackId)
@@ -98,6 +100,7 @@ export function boot(root: HTMLElement): void {
     countdownTimer = 3
     podiumWait = 0
     itemLatch = false
+    lastBeep = -1
   }
 
   function advanceWp(r: Racer): void {
@@ -121,9 +124,15 @@ export function boot(root: HTMLElement): void {
 
     if (countdown === 'countdown') {
       countdownTimer -= dt
+      const n = Math.max(1, Math.ceil(countdownTimer))
+      if (n !== lastBeep) {
+        lastBeep = n
+        beep(countdownHz(n))
+      }
       if (countdownTimer <= 0) {
         countdown = 'go'
         countdownTimer = 0.55
+        beep(goHz(), 220)
       }
       now += dt
       return
@@ -147,6 +156,7 @@ export function boot(root: HTMLElement): void {
         if (drive.useItem && !itemLatch) {
           useItem(items, 0, racers.map((x) => x.kart), now)
           itemLatch = true
+          itemBeep()
         }
         if (!drive.useItem) itemLatch = false
       } else {
@@ -310,6 +320,7 @@ export function boot(root: HTMLElement): void {
             ${TRACKS.map(
               (t) => `
               <button class="card track-card ${t.id === trackId ? 'on' : ''}" data-track="${t.id}">
+                <span class="swatch ${t.id}"></span>
                 <b>${t.name}</b>
               </button>`,
             ).join('')}
@@ -328,6 +339,7 @@ export function boot(root: HTMLElement): void {
   }
 
   overlay.addEventListener('click', (e) => {
+    resumeSfx()
     const t = e.target as HTMLElement
     const go = t.closest('[data-go]') as HTMLElement | null
     const ch = t.closest('[data-char]') as HTMLElement | null

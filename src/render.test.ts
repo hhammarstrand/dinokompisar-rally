@@ -6,6 +6,7 @@ import {
   hitTouch,
   pointerToCanvas,
   project,
+  tintCell,
   W,
   H,
 } from './render.ts'
@@ -57,6 +58,19 @@ describe('pointerToCanvas', () => {
     const p = pointerToCanvas(W, H, rect)
     expect(p.x).toBeCloseTo(W / 2)
     expect(p.y).toBeCloseTo(H / 2)
+  })
+})
+
+describe('tintCell', () => {
+  it('makes grotta, skog and moln look different on the same dirt cell', () => {
+    const base: [number, number, number] = [50, 50, 50]
+    const grotta = tintCell('grotta', 2, 100, 100, base)
+    const skog = tintCell('skog', 2, 100, 100, base)
+    const moln = tintCell('moln', 2, 100, 100, base)
+    expect(grotta).not.toEqual(skog)
+    expect(skog).not.toEqual(moln)
+    expect(skog[1]).toBeGreaterThan(grotta[1])
+    expect(moln[2]).toBeGreaterThan(grotta[2])
   })
 })
 
