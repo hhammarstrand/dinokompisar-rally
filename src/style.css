@@ -19,7 +19,7 @@ html, body {
   position: relative;
 }
 
-canvas {
+canvas.game {
   width: min(100vw, 960px);
   height: auto;
   image-rendering: pixelated;
@@ -27,6 +27,18 @@ canvas {
   box-shadow: 0 12px 40px #0008;
   outline: none;
   background: #000;
+  touch-action: none;
+}
+
+.portrait,
+.card canvas {
+  width: 80px !important;
+  height: 80px !important;
+  image-rendering: auto;
+  border-radius: 16px;
+  box-shadow: none;
+  background: #fff6e8;
+  pointer-events: none;
 }
 
 .ui {

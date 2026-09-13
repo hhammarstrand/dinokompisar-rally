@@ -1,40 +1,17 @@
 # Kvar tills det är ett spel (inte en demo)
 
-Befintlig kod i `src/` är en motor-skiss. Den får **inte** raderas. Bygg ovanpå.
+Befintlig kod i `src/` är motorn. Den får **inte** raderas. Bygg ovanpå.
 
-Hugo: det här är inte beta. Det ska kännas som ett barnspel man vill köra igen.
+## Klart nu
 
-## Vad som är fel nu
+- Karts är Dino/Rex/Stega/Laga (synliga i racet + porträtt i menyn)
+- Banorna har olika form, palett och start/mål-ruta
+- 3-2-1-KÖR, varv, plats, mini-karta, touch-knappar som träffar rätt
+- HUD i pastell, item-knapp inkopplad
+- `npm test` och `npm run build` gröna
+- Inga Mario-namn
 
-- Karts är ellipser, inte Dino/Rex/Stega/Laga
-- Banorna är färgklumpar (oval/wiggle/åttor), inte grottan/skogen/molntoppen
-- Ingen nedräkning, ingen mini-karta, inga synliga items på banan
-- HUD är en svart textruta
-- Menyerna ser ut som ett admin-UI
+## Kvar
+
 - Inga ljud
-- Touch är osynlig (dela skärmen, inga knappar)
-- Mode 7-golvet saknar kantlinjer, start/mål, dekoration
-
-## Mål för “spel”
-
-1. Man känner igen karaktärerna från Dinokompisar
-2. Tre banor ser ut som tre platser
-3. Ett race har start (3-2-1), varv, plats, mål
-4. Fungerar på telefon med knappar på skärmen
-5. `npm test` och `npm run build` gröna
-6. Inga Mario-namn/assets, inga vuxenteman
-
-## Karaktärer (lås)
-
-- Dino: grön, liten, rund, glada ögon
-- Rex: röd-orange ung T-Rex, pyttelika armar
-- Stega: blå, taggar på ryggen
-- Laga: stor brun T-Rex
-
-Barnboks-flat, pastell, inte fotorealistiskt.
-
-## Får inte
-
-- Radera physics/track-API
-- Byta till Three.js
-- Påstå klart utan att ha kört `npm test` och `npm run build`
+- Banorna är fortfarande loop/wiggle/åtta under paletten — mer plats-känsla går att lägga på

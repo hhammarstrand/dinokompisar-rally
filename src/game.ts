@@ -10,7 +10,21 @@ import {
   type ItemWorld,
 } from './items.ts'
 import { bounceFromWall, dist, stepKart, type KartState } from './physics.ts'
-import { drawHud, drawItemBox, drawKart, drawMinimap, drawPortrait, drawTouchButtons, project, drawWorld, H, W } from './render.ts'
+import {
+  cameraBehind,
+  drawEgg,
+  drawHud,
+  drawItemBox,
+  drawKart,
+  drawMinimap,
+  drawPortrait,
+  drawPuddle,
+  drawTouchButtons,
+  project,
+  drawWorld,
+  H,
+  W,
+} from './render.ts'
 import { buildTrack, TRACKS, terrainAt, type Track, type TrackId } from './track.ts'
 
 const LAPS = 3
@@ -29,6 +43,7 @@ interface Racer {
 
 export function boot(root: HTMLElement): void {
   const canvas = document.createElement('canvas')
+  canvas.className = 'game'
   canvas.width = W
   canvas.height = H
   canvas.tabIndex = 0
@@ -48,31 +63,11 @@ export function boot(root: HTMLElement): void {
   let racers: Racer[] = []
   let items: ItemWorld = emptyItems(4)
   let now = 0
-  let spaceLatch = false
+  let itemLatch = false
   let places: string[] = []
   let countdown: Countdown | null = null
   let countdownTimer = 0
   let podiumWait = 0
-
-  // Puff för att rita karaktärs-porträtt i menyn
-  const portraitCanvas = document.createElement('canvas')
-  portraitCanvas.width = 80
-  portraitCanvas.height = 80
-  const portraitCtx = portraitCanvas.getContext('2d')
-  if (!portraitCtx) throw new Error('ingen portraitCtx')
-
-  window.addEventListener('keydown', (e) => {
-    if (e.key === ' ' && screen === 'race') {
-      e.preventDefault()
-      if (!spaceLatch) {
-        useItem(items, 0, racers.map((r) => r.kart), now)
-        spaceLatch = true
-      }
-    }
-  })
-  window.addEventListener('keyup', (e) => {
-    if (e.key === ' ') spaceLatch = false
-  })
 
   function spawn(): void {
     track = buildTrack(trackId)
@@ -102,6 +97,7 @@ export function boot(root: HTMLElement): void {
     countdown = 'countdown'
     countdownTimer = 3
     podiumWait = 0
+    itemLatch = false
   }
 
   function advanceWp(r: Racer): void {
@@ -123,23 +119,18 @@ export function boot(root: HTMLElement): void {
   function step(dt: number): void {
     if (screen !== 'race' || !track) return
 
-    // Countdown-logik
     if (countdown === 'countdown') {
       countdownTimer -= dt
       if (countdownTimer <= 0) {
         countdown = 'go'
-        countdownTimer = 1.5
+        countdownTimer = 0.55
       }
       now += dt
       return
     }
     if (countdown === 'go') {
       countdownTimer -= dt
-      if (countdownTimer <= 0) {
-        countdown = null
-      }
-      now += dt
-      return
+      if (countdownTimer <= 0) countdown = null
     }
 
     now += dt
@@ -153,6 +144,11 @@ export function boot(root: HTMLElement): void {
       if (i === 0) {
         throttle = drive.throttle
         steer = drive.steer
+        if (drive.useItem && !itemLatch) {
+          useItem(items, 0, racers.map((x) => x.kart), now)
+          itemLatch = true
+        }
+        if (!drive.useItem) itemLatch = false
       } else {
         const cpu = cpuInput(r.kart, track, r.wp)
         throttle = cpu.throttle
@@ -177,8 +173,7 @@ export function boot(root: HTMLElement): void {
       advanceWp(r)
     }
     stepItems(items, racers.map((r) => r.kart), dt)
-    if (racers[0]!.finished && !places.includes(character(racers[0]!.charId).name)) {
-      // Vänta in alla racers
+    if (racers[0]!.finished) {
       const allFinished = racers.every((r) => r.finished > 0)
       if (allFinished || podiumWait > 2) {
         screen = 'results'
@@ -195,28 +190,34 @@ export function boot(root: HTMLElement): void {
   function paint(): void {
     if (!ctx || screen !== 'race' || !track) return
     const p = racers[0]!.kart
+    const cam = cameraBehind(p.x, p.y, p.angle)
     const fog = items.fogUntil[0]! > now
-    drawWorld(ctx, track, p.x, p.y, p.angle, fog)
+    drawWorld(ctx, track, cam.x, cam.y, cam.angle, fog)
 
-    // Rita item-boxar på banan (syns i världen)
     for (const wp of track.items) {
-      const ip = project(wp.x, wp.y, p.x, p.y, p.angle)
+      const ip = project(wp.x, wp.y, cam.x, cam.y, cam.angle)
       if (!ip) continue
       drawItemBox(ctx, ip.sx, ip.sy, ip.scale)
     }
+    for (const egg of items.projectiles) {
+      const ip = project(egg.x, egg.y, cam.x, cam.y, cam.angle)
+      if (!ip) continue
+      drawEgg(ctx, ip.sx, ip.sy, ip.scale)
+    }
+    for (const pud of items.puddles) {
+      const ip = project(pud.x, pud.y, cam.x, cam.y, cam.angle)
+      if (!ip) continue
+      drawPuddle(ctx, ip.sx, ip.sy, ip.scale)
+    }
 
-    const order = [...racers].sort((a, b) => {
-      const pa = projectScore(a)
-      const pb = projectScore(b)
-      return pb - pa
-    })
+    const order = [...racers].sort((a, b) => projectScore(b) - projectScore(a))
     const sortedDraw = [...racers].sort((a, b) => {
-      const da = dist(a.kart.x, a.kart.y, p.x, p.y)
-      const db = dist(b.kart.x, b.kart.y, p.x, p.y)
+      const da = dist(a.kart.x, a.kart.y, cam.x, cam.y)
+      const db = dist(b.kart.x, b.kart.y, cam.x, cam.y)
       return db - da
     })
     for (const r of sortedDraw) {
-      drawKart(ctx, r.kart, character(r.charId), p.x, p.y, p.angle, r === racers[0])
+      drawKart(ctx, r.kart, character(r.charId), cam.x, cam.y, cam.angle, r === racers[0])
     }
     const place = order.findIndex((r) => r === racers[0]) + 1
     const held = items.held[0]
@@ -229,31 +230,44 @@ export function boot(root: HTMLElement): void {
       finished: !!racers[0]!.finished,
     })
 
-    // Rita countdown
     if (countdown === 'countdown') {
       const num = Math.ceil(countdownTimer)
-      ctx.fillStyle = '#fff'
-      ctx.font = 'bold 72px ui-rounded, system-ui, sans-serif'
+      ctx.fillStyle = '#fff8ee'
+      ctx.strokeStyle = '#c45020'
+      ctx.lineWidth = 6
+      ctx.font = 'bold 72px Trebuchet MS, ui-rounded, system-ui, sans-serif'
       ctx.textAlign = 'center'
+      ctx.strokeText(String(num), W / 2, H / 2 + 20)
       ctx.fillText(String(num), W / 2, H / 2 + 20)
       ctx.textAlign = 'left'
     } else if (countdown === 'go') {
       ctx.fillStyle = '#ffd700'
-      ctx.font = 'bold 56px ui-rounded, system-ui, sans-serif'
+      ctx.strokeStyle = '#c45020'
+      ctx.lineWidth = 5
+      ctx.font = 'bold 56px Trebuchet MS, ui-rounded, system-ui, sans-serif'
       ctx.textAlign = 'center'
+      ctx.strokeText('KÖR!', W / 2, H / 2 + 18)
       ctx.fillText('KÖR!', W / 2, H / 2 + 18)
       ctx.textAlign = 'left'
     }
 
-    // Rita minikarta
     drawMinimap(ctx, track, racers, p)
-
-    // Rita synliga touch-knappar
     drawTouchButtons(ctx)
   }
 
   function projectScore(r: Racer): number {
     return r.laps * 10000 + r.wp * 10 - dist(r.kart.x, r.kart.y, track!.waypoints[r.wp]!.x, track!.waypoints[r.wp]!.y) * 0.01
+  }
+
+  function paintPortraits(): void {
+    for (const c of CHARACTERS) {
+      const el = document.getElementById(`portrait-${c.id}`) as HTMLCanvasElement | null
+      if (!el) continue
+      const pctx = el.getContext('2d')
+      if (!pctx) continue
+      pctx.clearRect(0, 0, el.width, el.height)
+      drawPortrait(pctx, c, el.width)
+    }
   }
 
   function renderMenu(): void {
@@ -272,26 +286,22 @@ export function boot(root: HTMLElement): void {
           <button data-go="char">Kör!</button>
         </div>`
     } else if (screen === 'char') {
-      const charCards = CHARACTERS.map((c) => {
-        const canvasId = `portrait-${c.id}`
-        return `\n              <button class="card ${c.id === playerChar ? 'on' : ''}" data-char="${c.id}">\n                <canvas id="${canvasId}" width="80" height="80"></canvas>\n                <b>${c.name}</b>\n                <span>${c.blurb}</span>\n              </button>`
-      }).join('')
       overlay.innerHTML = `
         <div class="panel">
           <h2>Välj kart</h2>
           <div class="grid">
-            ${charCards}
+            ${CHARACTERS.map(
+              (c) => `
+              <button class="card ${c.id === playerChar ? 'on' : ''}" data-char="${c.id}">
+                <canvas class="portrait" id="portrait-${c.id}" width="80" height="80"></canvas>
+                <b>${c.name}</b>
+                <span>${c.blurb}</span>
+              </button>`,
+            ).join('')}
           </div>
           <button data-go="track">Nästa</button>
         </div>`
-      // Rita porträtt på canvas
-      for (const c of CHARACTERS) {
-        const el = document.getElementById(`portrait-${c.id}`) as HTMLCanvasElement | null
-        if (el && portraitCtx) {
-          portraitCtx.clearRect(0, 0, 80, 80)
-          drawPortrait(portraitCtx, c, 80)
-        }
-      }
+      paintPortraits()
     } else if (screen === 'track') {
       overlay.innerHTML = `
         <div class="panel">
@@ -299,7 +309,7 @@ export function boot(root: HTMLElement): void {
           <div class="grid">
             ${TRACKS.map(
               (t) => `
-              <button class="card ${t.id === trackId ? 'on' : ''}" data-track="${t.id}">
+              <button class="card track-card ${t.id === trackId ? 'on' : ''}" data-track="${t.id}">
                 <b>${t.name}</b>
               </button>`,
             ).join('')}
@@ -346,9 +356,6 @@ export function boot(root: HTMLElement): void {
       acc -= 1 / 60
     }
     if (screen === 'race') paint()
-    if (screen === 'results') {
-      /* overlay handles */
-    }
     requestAnimationFrame(tick)
   }
   requestAnimationFrame(tick)

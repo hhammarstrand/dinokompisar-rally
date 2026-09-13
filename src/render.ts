@@ -1,12 +1,40 @@
 import type { Character } from './characters.ts'
 import type { KartState } from './physics.ts'
-import type { Track } from './track.ts'
+import { onStartLine, type Track } from './track.ts'
 
 const W = 480
 const H = 270
 const HORIZON = 92
 const CAM_H = 42
 const FOV = 220
+const CAM_BACK = 10
+
+export type TouchKind = 'left' | 'right' | 'gas' | 'brake' | 'item'
+export interface Rect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+export function cameraBehind(x: number, y: number, angle: number): { x: number; y: number; angle: number } {
+  return {
+    x: x - Math.cos(angle) * CAM_BACK,
+    y: y - Math.sin(angle) * CAM_BACK,
+    angle,
+  }
+}
+
+export function pointerToCanvas(
+  clientX: number,
+  clientY: number,
+  rect: { left: number; top: number; width: number; height: number },
+): { x: number; y: number } {
+  return {
+    x: ((clientX - rect.left) / Math.max(1, rect.width)) * W,
+    y: ((clientY - rect.top) / Math.max(1, rect.height)) * H,
+  }
+}
 
 export function project(
   wx: number,
@@ -17,15 +45,16 @@ export function project(
 ): { sx: number; sy: number; scale: number } | null {
   const dx = wx - camX
   const dy = wy - camY
-  const c = Math.cos(-camA)
-  const s = Math.sin(-camA)
-  const rx = dx * c - dy * s
-  const ry = dx * s + dy * c
-  if (ry < 8) return null
-  const sx = W / 2 + (rx / ry) * FOV
-  const sy = HORIZON + (CAM_H / ry) * FOV
-  const scale = Math.max(0.15, Math.min(2.8, 28 / ry))
-  if (sy < HORIZON - 4 || sy > H + 20) return null
+  const ca = Math.cos(camA)
+  const sa = Math.sin(camA)
+  const forward = dx * ca + dy * sa
+  const right = -dx * sa + dy * ca
+  if (forward < 2) return null
+  const z = forward / 8
+  const sx = W / 2 + (right / (z * 1.15)) * FOV
+  const sy = HORIZON + CAM_H / z - 1
+  const scale = Math.max(0.35, Math.min(3.2, 18 / forward))
+  if (sy < HORIZON - 8 || sy > H + 30) return null
   return { sx, sy, scale }
 }
 
@@ -77,24 +106,24 @@ export function drawWorld(
         g = rgb[1]!
         b = rgb[2]!
         const stripe = ((ix >> 4) + (iy >> 4)) & 1
-        if (v === 1 && stripe) {
-          // Start/mål-linje (vit streckad vid waypoint 0-området)
-          const isStartLine = ix > 480 && ix < 560 && iy > 480 && iy < 560
-          if (isStartLine) {
-            r = 255
-            g = 255
-            b = 255
-          } else {
-            r = Math.min(255, r + 12)
-            g = Math.min(255, g + 12)
-            b = Math.min(255, b + 12)
-          }
+        if ((v === 1 || v === 3 || v === 4) && onStartLine(track, ix, iy)) {
+          const chk = ((ix >> 3) + (iy >> 3)) & 1
+          r = chk ? 250 : 30
+          g = chk ? 250 : 30
+          b = chk ? 250 : 30
+        } else if (v === 1 && stripe) {
+          r = Math.min(255, r + 12)
+          g = Math.min(255, g + 12)
+          b = Math.min(255, b + 12)
         }
-        // Vägkant (OFF-cell intill ROAD)
-        if (v === 2 && ix > 0 && cells[iy * size + (ix - 1)] === 1) {
-          r = Math.max(0, r - 30)
-          g = Math.max(0, g - 30)
-          b = Math.max(0, b - 30)
+        if (v === 2) {
+          const left = ix > 0 ? cells[iy * size + (ix - 1)] : 0
+          const up = iy > 0 ? cells[(iy - 1) * size + ix] : 0
+          if (left === 1 || up === 1) {
+            r = Math.min(255, r + 50)
+            g = Math.min(255, g + 40)
+            b = Math.min(255, b + 20)
+          }
         }
       }
       const o = dest + x * 4
@@ -118,12 +147,17 @@ export function drawWorld(
 }
 
 function drawDecorations(ctx: CanvasRenderingContext2D, track: Track, camX: number, camY: number, camA: number): void {
-  // Rita dekorationer baserat på bana-id
   const decorations = track.id === 'grotta' ? drawCrystal : track.id === 'skog' ? drawTree : drawCloud
-  // Placera några dekorationer längs banan (vid waypoints)
-  for (let i = 0; i < track.waypoints.length; i += 30) {
+  const step = track.id === 'skog' ? 8 : 10
+  const offset = track.id === 'moln' ? 36 : 58
+  for (let i = 0; i < track.waypoints.length; i += step) {
     const wp = track.waypoints[i]!
-    const p = project(wp.x, wp.y, camX, camY, camA)
+    const nxt = track.waypoints[(i + 4) % track.waypoints.length]!
+    const a = Math.atan2(nxt.y - wp.y, nxt.x - wp.x)
+    const side = i % (step * 2) === 0 ? 1 : -1
+    const x = wp.x + Math.cos(a + Math.PI / 2) * offset * side
+    const y = wp.y + Math.sin(a + Math.PI / 2) * offset * side
+    const p = project(x, y, camX, camY, camA)
     if (!p) continue
     decorations(ctx, p.sx, p.sy, p.scale)
   }
@@ -394,24 +428,42 @@ export function drawItemBox(ctx: CanvasRenderingContext2D, x: number, y: number,
   ctx.textAlign = 'left'
 }
 
+export function drawEgg(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
+  const s = 7 * scale
+  ctx.fillStyle = '#f4e4c4'
+  ctx.beginPath()
+  ctx.ellipse(x, y, s * 0.55, s * 0.75, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#e07070'
+  ctx.beginPath()
+  ctx.arc(x - s * 0.12, y - s * 0.1, s * 0.16, 0, Math.PI * 2)
+  ctx.fill()
+}
+
+export function drawPuddle(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
+  const s = 10 * scale
+  ctx.fillStyle = 'rgba(80,160,70,0.7)'
+  ctx.beginPath()
+  ctx.ellipse(x, y, s, s * 0.45, 0, 0, Math.PI * 2)
+  ctx.fill()
+}
+
 export function drawMinimap(ctx: CanvasRenderingContext2D, track: Track, racers: { kart: { x: number; y: number } }[], _p: { x: number; y: number }): void {
-  const size = 100
-  const margin = 8
-  const mx = W - size - margin
-  const my = H - size - margin
-  ctx.fillStyle = 'rgba(0,0,0,0.5)'
-  ctx.fillRect(mx, my, size, size)
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)'
-  ctx.lineWidth = 1
-  ctx.strokeRect(mx, my, size, size)
-
-  const scale = (size - 16) / track.size
-  const ox = mx + 8
-  const oy = my + 8
-
-  // Rita banan som linjer mellan waypoints
-  ctx.strokeStyle = 'rgba(200,200,200,0.6)'
+  const m = getTouchButtons().minimap
+  ctx.fillStyle = 'rgba(255,248,230,0.88)'
+  ctx.strokeStyle = '#e8a030'
   ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.roundRect(m.x, m.y, m.w, m.h, 10)
+  ctx.fill()
+  ctx.stroke()
+
+  const scale = (m.w - 16) / track.size
+  const ox = m.x + 8
+  const oy = m.y + 8
+
+  ctx.strokeStyle = track.id === 'grotta' ? '#7a6a90' : track.id === 'skog' ? '#3d6b3a' : '#90b8d0'
+  ctx.lineWidth = 3
   ctx.beginPath()
   for (let i = 0; i < track.waypoints.length; i++) {
     const wp = track.waypoints[i]!
@@ -423,14 +475,11 @@ export function drawMinimap(ctx: CanvasRenderingContext2D, track: Track, racers:
   ctx.closePath()
   ctx.stroke()
 
-  // Rita racers som prickar
   for (let i = 0; i < racers.length; i++) {
     const r = racers[i]!
-    const rx = ox + r.kart.x * scale
-    const ry = oy + r.kart.y * scale
-    ctx.fillStyle = i === 0 ? '#ffd700' : '#ff6b6b'
+    ctx.fillStyle = i === 0 ? '#e8703a' : '#5aa0d0'
     ctx.beginPath()
-    ctx.arc(rx, ry, i === 0 ? 4 : 3, 0, Math.PI * 2)
+    ctx.arc(ox + r.kart.x * scale, oy + r.kart.y * scale, i === 0 ? 4 : 3, 0, Math.PI * 2)
     ctx.fill()
   }
 }
@@ -446,23 +495,30 @@ export function drawHud(
     finished: boolean
   },
 ): void {
-  ctx.fillStyle = 'rgba(0,0,0,0.45)'
-  ctx.fillRect(8, 8, 150, 44)
-  ctx.fillStyle = '#fff'
-  ctx.font = '12px ui-rounded, system-ui, sans-serif'
-  ctx.fillText(`${opts.trackName}`, 14, 24)
-  ctx.fillText(`Varv ${Math.min(opts.lap, opts.laps)}/${opts.laps}   #${opts.place}`, 14, 42)
+  ctx.fillStyle = 'rgba(255,250,240,0.9)'
+  ctx.strokeStyle = '#ffb347'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.roundRect(8, 8, 168, 50, 12)
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = '#c45020'
+  ctx.font = 'bold 12px Trebuchet MS, ui-rounded, system-ui, sans-serif'
+  ctx.fillText(opts.trackName, 16, 26)
+  ctx.fillStyle = '#3a2a1a'
+  ctx.font = 'bold 14px Trebuchet MS, ui-rounded, system-ui, sans-serif'
+  ctx.fillText(`Varv ${Math.min(opts.lap, opts.laps)}/${opts.laps}  #${opts.place}`, 16, 46)
   if (opts.item) {
-    ctx.fillStyle = 'rgba(80,40,90,0.7)'
-    ctx.fillRect(W - 158, 8, 150, 28)
-    ctx.fillStyle = '#ffe9a8'
-    ctx.fillText(opts.item, W - 148, 27)
+    ctx.fillStyle = 'rgba(255,230,160,0.95)'
+    ctx.strokeStyle = '#e8a030'
+    ctx.beginPath()
+    ctx.roundRect(8, 64, 168, 26, 10)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = '#7a3a10'
+    ctx.font = 'bold 12px Trebuchet MS, ui-rounded, system-ui, sans-serif'
+    ctx.fillText(opts.item, 16, 82)
   }
-  ctx.fillStyle = 'rgba(0,0,0,0.35)'
-  ctx.fillRect(8, H - 28, W - 16, 20)
-  ctx.fillStyle = '#eee'
-  ctx.font = '10px ui-rounded, system-ui, sans-serif'
-  ctx.fillText('pilar/WASD  gas ·  Mellanslag item ·  vänster/höger styr', 14, H - 14)
 }
 
 /** Rita ett porträtt av en karaktär på en canvas (används i menyn). */
@@ -647,75 +703,65 @@ export function drawPortrait(
   }
 }
 
-export const TOUCH_BTN_Y = H - 60
-export const TOUCH_BTN_H = 50
+export const TOUCH_BTN_Y = H - 52
+export const TOUCH_BTN_H = 44
+
+export function getTouchButtons(): {
+  left: Rect
+  right: Rect
+  gas: Rect
+  brake: Rect
+  item: Rect
+  minimap: Rect
+} {
+  const bw = 58
+  const bh = TOUCH_BTN_H
+  const gap = 8
+  const y = TOUCH_BTN_Y
+  const startX = 10
+  return {
+    left: { x: startX, y, w: bw, h: bh },
+    brake: { x: startX + bw + gap, y, w: bw, h: bh },
+    gas: { x: startX + 2 * (bw + gap), y, w: bw, h: bh },
+    right: { x: startX + 3 * (bw + gap), y, w: bw, h: bh },
+    item: { x: W - 76, y: H - 56, w: 68, h: 48 },
+    minimap: { x: W - 108, y: 8, w: 100, h: 100 },
+  }
+}
+
+export function hitTouch(x: number, y: number): TouchKind | null {
+  const b = getTouchButtons()
+  const order: TouchKind[] = ['item', 'gas', 'brake', 'left', 'right']
+  for (const k of order) {
+    const r = b[k]
+    if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return k
+  }
+  return null
+}
 
 export function drawTouchButtons(ctx: CanvasRenderingContext2D): void {
-  const bw = 70
-  const bh = TOUCH_BTN_H
-  const gap = 10
-  const totalW = 4 * bw + 3 * gap
-  const startX = (W - totalW) / 2
-  const y = TOUCH_BTN_Y
-
-  const buttons = [
-    { label: '<', color: '#6baed6' },
-    { label: 'V', color: '#fd8d3c' },
-    { label: '^', color: '#74a059' },
-    { label: '>', color: '#6baed6' },
+  const b = getTouchButtons()
+  const drawn: { r: Rect; label: string; color: string }[] = [
+    { r: b.left, label: '<', color: '#6baed6' },
+    { r: b.brake, label: 'V', color: '#fd8d3c' },
+    { r: b.gas, label: '^', color: '#74a059' },
+    { r: b.right, label: '>', color: '#6baed6' },
+    { r: b.item, label: 'ITEM', color: '#e5986b' },
   ]
-
-  for (let i = 0; i < buttons.length; i++) {
-    const b = buttons[i]!
-    const bx = startX + i * (bw + gap)
-    ctx.fillStyle = b.color
+  for (const d of drawn) {
+    ctx.fillStyle = d.color
     ctx.beginPath()
-    ctx.roundRect(bx, y, bw, bh, 8)
+    ctx.roundRect(d.r.x, d.r.y, d.r.w, d.r.h, 10)
     ctx.fill()
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)'
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'
     ctx.lineWidth = 2
     ctx.stroke()
     ctx.fillStyle = '#fff'
-    ctx.font = 'bold 24px ui-rounded, system-ui'
+    ctx.font = d.label === 'ITEM' ? 'bold 14px Trebuchet MS, system-ui' : 'bold 22px Trebuchet MS, system-ui'
     ctx.textAlign = 'center'
-    ctx.fillText(b.label, bx + bw / 2, y + bh / 2 + 8)
+    ctx.fillText(d.label, d.r.x + d.r.w / 2, d.r.y + d.r.h / 2 + 7)
   }
-
-  // Item-knapp (höger om de fyra)
-  const itemX = W - 90
-  const itemY = H - 100
-  ctx.fillStyle = '#e5986b'
-  ctx.beginPath()
-  ctx.roundRect(itemX, itemY, 80, 70, 10)
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)'
-  ctx.lineWidth = 2
-  ctx.stroke()
-  ctx.fillStyle = '#fff'
-  ctx.font = 'bold 20px ui-rounded, system-ui'
-  ctx.textAlign = 'center'
-  ctx.fillText('ITEM', itemX + 40, itemY + 45)
-}
-
-export function getTouchButtons(): {
-  left: { x: number; y: number; w: number; h: number }
-  right: { x: number; y: number; w: number; h: number }
-  up: { x: number; y: number; w: number; h: number }
-  item: { x: number; y: number; w: number; h: number }
-} {
-  const bw = 70
-  const bh = TOUCH_BTN_H
-  const gap = 10
-  const totalW = 4 * bw + 3 * gap
-  const startX = (W - totalW) / 2
-  const y = TOUCH_BTN_Y
-
-  return {
-    left: { x: startX, y, w: bw, h: bh },
-    right: { x: startX + 3 * (bw + gap), y, w: bw, h: bh },
-    up: { x: startX + bw + gap, y, w: bw, h: bh },
-    item: { x: W - 90, y: H - 100, w: 80, h: 70 },
-  }
+  ctx.textAlign = 'left'
 }
 
 export { W, H }

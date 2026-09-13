@@ -16,6 +16,7 @@ export interface Track {
   start: Waypoint & { angle: number }
   waypoints: Waypoint[]
   items: Waypoint[]
+  startLine: Waypoint[]
   skyTop: string
   skyBot: string
   roadRgb: [number, number, number]
@@ -42,17 +43,20 @@ export function terrainAt(t: Track, x: number, y: number): Terrain {
   return 'wall'
 }
 
+export function onStartLine(t: Track, x: number, y: number): boolean {
+  const dx = x - t.start.x
+  const dy = y - t.start.y
+  const ca = Math.cos(t.start.angle)
+  const sa = Math.sin(t.start.angle)
+  const along = dx * ca + dy * sa
+  const across = -dx * sa + dy * ca
+  return Math.abs(along) < 6 && Math.abs(across) < 44
+}
+
 export function buildTrack(id: TrackId): Track {
-  if (id === 'grotta') return makeLoop('grotta', 'Den ljusa grottan', 1024, 0.34, 0.26, 46, false, {
-    skyTop: '#2a1848',
-    skyBot: '#e8b86a',
-    roadRgb: [92, 78, 110],
-    offRgb: [58, 42, 36],
-    wallRgb: [28, 18, 32],
-    boostRgb: [240, 196, 80],
-  })
-  if (id === 'skog') return makeWiggle()
-  return makeEight()
+  if (id === 'grotta') return makeGrotta()
+  if (id === 'skog') return makeSkog()
+  return makeMoln()
 }
 
 function stamp(cells: Uint8Array, size: number, x: number, y: number, r: number, v: number): void {
@@ -70,10 +74,7 @@ function stamp(cells: Uint8Array, size: number, x: number, y: number, r: number,
   }
 }
 
-function pathPoints(
-  n: number,
-  fn: (i: number, u: number) => Waypoint,
-): Waypoint[] {
+function pathPoints(n: number, fn: (i: number, u: number) => Waypoint): Waypoint[] {
   const pts: Waypoint[] = []
   for (let i = 0; i < n; i++) pts.push(fn(i, i / n))
   return pts
@@ -81,8 +82,8 @@ function pathPoints(
 
 function layRoad(cells: Uint8Array, size: number, pts: Waypoint[], width: number): void {
   cells.fill(OFF)
-  for (const p of pts) stamp(cells, size, p.x, p.y, width + 14, WALL)
-  for (const p of pts) stamp(cells, size, p.x, p.y, width + 4, OFF) // kant-zon
+  for (const p of pts) stamp(cells, size, p.x, p.y, width + 16, WALL)
+  for (const p of pts) stamp(cells, size, p.x, p.y, width + 5, OFF)
   for (const p of pts) stamp(cells, size, p.x, p.y, width, ROAD)
   const edge = 18
   for (let y = 0; y < size; y++) {
@@ -100,38 +101,28 @@ function everyNth(pts: Waypoint[], step: number, offset = 0): Waypoint[] {
   return out
 }
 
-function makeLoop(
-  id: TrackId,
-  name: string,
-  size: number,
-  rx: number,
-  ry: number,
-  width: number,
-  boosts: boolean,
-  theme: Omit<Track, 'id' | 'name' | 'size' | 'cells' | 'start' | 'waypoints' | 'items'>,
-): Track {
-  const cx = size / 2
-  const cy = size / 2
-  const pts = pathPoints(360, (_i, u) => {
-    const a = u * Math.PI * 2
-    return { x: cx + Math.cos(a) * size * rx, y: cy + Math.sin(a) * size * ry }
-  })
-  const cells = new Uint8Array(size * size)
-  layRoad(cells, size, pts, width)
-  if (boosts) {
-    for (const p of everyNth(pts, 90, 20)) stamp(cells, size, p.x, p.y, 14, BOOST)
-  }
-  const items = everyNth(pts, 60, 10)
-  for (const p of items) stamp(cells, size, p.x, p.y, 7, ITEM)
-  // Start/mål-linje vid waypoint 0
+function heading(pts: Waypoint[], i: number): number {
+  const a = pts[i]!
+  const b = pts[(i + 8) % pts.length]!
+  return Math.atan2(b.y - a.y, b.x - a.x)
+}
+
+function makeStartLine(pts: Waypoint[]): Waypoint[] {
   const start = pts[0]!
-  const nxt = pts[8]!
-  const angle = Math.atan2(nxt.y - start.y, nxt.x - start.x)
-  for (let i = -3; i <= 3; i++) {
-    const px = start.x + Math.cos(angle + Math.PI / 2) * i * 5
-    const py = start.y + Math.sin(angle + Math.PI / 2) * i * 5
-    stamp(cells, size, px | 0, py | 0, 3, ROAD)
+  const angle = heading(pts, 0)
+  const line: Waypoint[] = []
+  for (let i = -8; i <= 8; i++) {
+    line.push({
+      x: start.x + Math.cos(angle + Math.PI / 2) * i * 5,
+      y: start.y + Math.sin(angle + Math.PI / 2) * i * 5,
+    })
   }
+  return line
+}
+
+function finish(id: TrackId, name: string, size: number, pts: Waypoint[], cells: Uint8Array, items: Waypoint[], theme: Omit<Track, 'id' | 'name' | 'size' | 'cells' | 'start' | 'waypoints' | 'items' | 'startLine'>): Track {
+  const start = pts[0]!
+  const angle = heading(pts, 0)
   return {
     id,
     name,
@@ -140,55 +131,71 @@ function makeLoop(
     start: { ...start, angle },
     waypoints: pts,
     items,
+    startLine: makeStartLine(pts),
     ...theme,
   }
 }
 
-function makeWiggle(): Track {
+function scatter(cells: Uint8Array, size: number, pts: Waypoint[], offset: number, r: number, v: number, step: number): void {
+  for (let i = 0; i < pts.length; i += step) {
+    const a = heading(pts, i)
+    const p = pts[i]!
+    const side = i % (step * 2) === 0 ? 1 : -1
+    stamp(cells, size, p.x + Math.cos(a + Math.PI / 2) * offset * side, p.y + Math.sin(a + Math.PI / 2) * offset * side, r, v)
+  }
+}
+
+function makeGrotta(): Track {
   const size = 1024
-  const pts = pathPoints(400, (_i, u) => {
+  const cx = size / 2
+  const cy = size / 2
+  const pts = pathPoints(360, (_i, u) => {
     const a = u * Math.PI * 2
-    const wobble = 90 * Math.sin(a * 3)
+    return { x: cx + Math.cos(a) * size * 0.4, y: cy + Math.sin(a) * size * 0.24 }
+  })
+  const cells = new Uint8Array(size * size)
+  layRoad(cells, size, pts, 50)
+  scatter(cells, size, pts, 78, 18, WALL, 12)
+  const items = everyNth(pts, 60, 10)
+  for (const p of items) stamp(cells, size, p.x, p.y, 7, ITEM)
+  return finish('grotta', 'Den ljusa grottan', size, pts, cells, items, {
+    skyTop: '#2a1848',
+    skyBot: '#e8b86a',
+    roadRgb: [92, 78, 110],
+    offRgb: [58, 42, 36],
+    wallRgb: [28, 18, 32],
+    boostRgb: [240, 196, 80],
+  })
+}
+
+function makeSkog(): Track {
+  const size = 1024
+  const pts = pathPoints(420, (_i, u) => {
+    const a = u * Math.PI * 2
     return {
-      x: 512 + Math.cos(a) * (310 + wobble),
-      y: 512 + Math.sin(a) * (250 + wobble * 0.4),
+      x: 512 + Math.cos(a) * (250 + 28 * Math.sin(a * 3)),
+      y: 512 + Math.sin(a) * (330 + 18 * Math.sin(a * 2)),
     }
   })
   const cells = new Uint8Array(size * size)
-  layRoad(cells, size, pts, 34)
+  layRoad(cells, size, pts, 30)
+  scatter(cells, size, pts, 52, 11, WALL, 8)
   const items = everyNth(pts, 50, 8)
   for (const p of items) stamp(cells, size, p.x, p.y, 7, ITEM)
-  // Start/mål-linje
-  const start = pts[0]!
-  const nxt = pts[6]!
-  const angle = Math.atan2(nxt.y - start.y, nxt.x - start.x)
-  for (let i = -3; i <= 3; i++) {
-    const px = start.x + Math.cos(angle + Math.PI / 2) * i * 5
-    const py = start.y + Math.sin(angle + Math.PI / 2) * i * 5
-    stamp(cells, size, px | 0, py | 0, 3, ROAD)
-  }
-  return {
-    id: 'skog',
-    name: 'Den mörka skogen',
-    size,
-    cells,
-    start: { ...start, angle },
-    waypoints: pts,
-    items,
+  return finish('skog', 'Den mörka skogen', size, pts, cells, items, {
     skyTop: '#102010',
     skyBot: '#3d6b3a',
     roadRgb: [62, 56, 48],
     offRgb: [28, 72, 34],
     wallRgb: [12, 28, 14],
     boostRgb: [180, 220, 90],
-  }
+  })
 }
 
-function makeEight(): Track {
+function makeMoln(): Track {
   const size = 1024
   const pts = pathPoints(420, (_i, u) => {
     const a = u * Math.PI * 2
-    // lemniscate-ish
     const s = Math.sin(a)
     const c = Math.cos(a)
     const sc = 1 + 0.35 * Math.sin(2 * a)
@@ -196,33 +203,17 @@ function makeEight(): Track {
   })
   const cells = new Uint8Array(size * size)
   layRoad(cells, size, pts, 36)
-  for (const p of everyNth(pts, 70, 15)) stamp(cells, size, p.x, p.y, 16, BOOST)
+  for (const p of everyNth(pts, 36, 12)) stamp(cells, size, p.x, p.y, 16, BOOST)
   const items = everyNth(pts, 55, 4)
   for (const p of items) stamp(cells, size, p.x, p.y, 7, ITEM)
-  // Start/mål-linje
-  const start = pts[0]!
-  const nxt = pts[7]!
-  const angle = Math.atan2(nxt.y - start.y, nxt.x - start.x)
-  for (let i = -3; i <= 3; i++) {
-    const px = start.x + Math.cos(angle + Math.PI / 2) * i * 5
-    const py = start.y + Math.sin(angle + Math.PI / 2) * i * 5
-    stamp(cells, size, px | 0, py | 0, 3, ROAD)
-  }
-  return {
-    id: 'moln',
-    name: 'Molntoppen',
-    size,
-    cells,
-    start: { ...start, angle },
-    waypoints: pts,
-    items,
+  return finish('moln', 'Molntoppen', size, pts, cells, items, {
     skyTop: '#6ec8f0',
     skyBot: '#f7f3ea',
     roadRgb: [210, 214, 222],
     offRgb: [186, 214, 232],
     wallRgb: [255, 255, 255],
     boostRgb: [255, 214, 64],
-  }
+  })
 }
 
 export const TRACKS: { id: TrackId; name: string }[] = [
