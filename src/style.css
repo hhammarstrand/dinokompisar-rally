@@ -1,7 +1,7 @@
 :root {
   font-family: "Trebuchet MS", ui-rounded, system-ui, sans-serif;
   color: #3a2a1a;
-  background: #1a1020;
+  background: #fff8ee;
 }
 
 * { box-sizing: border-box; }
@@ -9,7 +9,7 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: radial-gradient(circle at 50% 20%, #3d2a55, #140c18 70%);
+  background: linear-gradient(135deg, #fff8ee 0%, #ffe8d6 100%);
 }
 
 #app {
@@ -39,53 +39,127 @@ canvas {
 
 .panel {
   pointer-events: auto;
-  background: #fff6e8ee;
-  border: 4px solid #3aa35a;
-  border-radius: 18px;
-  padding: 22px 26px;
-  max-width: 520px;
+  background: #fffaf0;
+  border: 5px solid #ffb347;
+  border-radius: 24px;
+  padding: 28px 32px;
+  max-width: 540px;
   width: calc(100% - 32px);
   text-align: center;
-  box-shadow: 0 10px 0 #2a1848;
+  box-shadow: 0 8px 0 #e8a030, 0 12px 24px rgba(0,0,0,0.12);
 }
 
-h1 { margin: 0 0 8px; font-size: 2rem; color: #2a1848; }
-h2 { margin: 0 0 12px; color: #2a1848; }
-p { margin: 0 0 16px; }
+h1 {
+  margin: 0 0 10px;
+  font-size: 2.2rem;
+  color: #e8703a;
+  text-shadow: 2px 2px 0 #ffe0b2;
+}
+
+h2 {
+  margin: 0 0 14px;
+  color: #d4602a;
+  font-size: 1.5rem;
+}
+
+p {
+  margin: 0 0 18px;
+  color: #7a5a3a;
+  font-size: 1rem;
+}
 
 button {
   font: inherit;
-  background: #d94a3a;
+  background: linear-gradient(180deg, #ffb347 0%, #ff9530 100%);
   color: #fff;
   border: 0;
   border-radius: 999px;
-  padding: 10px 18px;
-  margin: 6px;
+  padding: 12px 24px;
+  margin: 8px;
   cursor: pointer;
+  font-weight: bold;
+  box-shadow: 0 4px 0 #d47020, 0 6px 12px rgba(0,0,0,0.15);
+  transition: transform 0.1s, box-shadow 0.1s;
 }
 
-button:hover { filter: brightness(1.08); }
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #d47020, 0 8px 16px rgba(0,0,0,0.2);
+}
+
+button:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #d47020;
+}
 
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .card {
-  background: #fff;
+  background: linear-gradient(135deg, #fff8f0 0%, #ffe8d6 100%);
   color: #3a2a1a;
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border: 3px solid #eadcc8;
+  gap: 6px;
+  border: 3px solid #ffd8a8;
+  box-shadow: 0 4px 0 #e8b878, 0 6px 12px rgba(0,0,0,0.08);
+  transition: transform 0.15s;
 }
 
-.card.on { border-color: #3aa35a; background: #e7f6ea; }
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 0 #e8b878, 0 8px 16px rgba(0,0,0,0.12);
+}
 
-.card span { font-size: 0.85rem; color: #5a4a3a; }
+.card.on {
+  border-color: #ffb347;
+  background: linear-gradient(135deg, #fff0d8 0%, #ffe0c0 100%);
+  box-shadow: 0 4px 0 #e8a030, 0 6px 12px rgba(0,0,0,0.12);
+}
 
-ol { text-align: left; }
+.card b {
+  font-size: 1.1rem;
+  color: #c45020;
+}
+
+.card span {
+  font-size: 0.85rem;
+  color: #7a5a3a;
+}
+
+.track-card {
+  background: linear-gradient(135deg, #f0f8ff 0%, #e0f0ff 100%);
+  border-color: #b8d8f0;
+  box-shadow: 0 4px 0 #90c0e0, 0 6px 12px rgba(0,0,0,0.08);
+}
+
+.track-card:hover {
+  box-shadow: 0 6px 0 #90c0e0, 0 8px 16px rgba(0,0,0,0.12);
+}
+
+.track-card.on {
+  border-color: #5aa0d0;
+  background: linear-gradient(135deg, #e0f0ff 0%, #d0e8ff 100%);
+  box-shadow: 0 4px 0 #70b0e8, 0 6px 12px rgba(0,0,0,0.12);
+}
+
+ol {
+  text-align: left;
+  font-size: 1.2rem;
+  color: #5a3a1a;
+}
+
+ol li {
+  padding: 6px 0;
+  border-bottom: 2px dashed #ffd8a8;
+}
+
+ol li:last-child {
+  border-bottom: 0;
+}
