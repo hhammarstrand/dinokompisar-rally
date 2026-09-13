@@ -10,12 +10,13 @@ import {
   type ItemWorld,
 } from './items.ts'
 import { bounceFromWall, dist, stepKart, type KartState } from './physics.ts'
-import { drawHud, drawKart, drawPortrait, drawWorld, H, W } from './render.ts'
+import { drawHud, drawItemBox, drawKart, drawMinimap, drawPortrait, drawTouchButtons, project, drawWorld, H, W } from './render.ts'
 import { buildTrack, TRACKS, terrainAt, type Track, type TrackId } from './track.ts'
 
 const LAPS = 3
 const CPU_CHARS: CharId[] = ['dino', 'rex', 'stega', 'laga']
 
+type Countdown = 'countdown' | 'go'
 type Screen = 'title' | 'char' | 'track' | 'race' | 'results'
 
 interface Racer {
@@ -49,6 +50,9 @@ export function boot(root: HTMLElement): void {
   let now = 0
   let spaceLatch = false
   let places: string[] = []
+  let countdown: Countdown | null = null
+  let countdownTimer = 0
+  let podiumWait = 0
 
   // Puff för att rita karaktärs-porträtt i menyn
   const portraitCanvas = document.createElement('canvas')
@@ -95,6 +99,9 @@ export function boot(root: HTMLElement): void {
     items = emptyItems(racers.length)
     now = 0
     places = []
+    countdown = 'countdown'
+    countdownTimer = 3
+    podiumWait = 0
   }
 
   function advanceWp(r: Racer): void {
@@ -115,6 +122,26 @@ export function boot(root: HTMLElement): void {
 
   function step(dt: number): void {
     if (screen !== 'race' || !track) return
+
+    // Countdown-logik
+    if (countdown === 'countdown') {
+      countdownTimer -= dt
+      if (countdownTimer <= 0) {
+        countdown = 'go'
+        countdownTimer = 1.5
+      }
+      now += dt
+      return
+    }
+    if (countdown === 'go') {
+      countdownTimer -= dt
+      if (countdownTimer <= 0) {
+        countdown = null
+      }
+      now += dt
+      return
+    }
+
     now += dt
     const drive = input.read()
     for (let i = 0; i < racers.length; i++) {
@@ -150,40 +177,79 @@ export function boot(root: HTMLElement): void {
       advanceWp(r)
     }
     stepItems(items, racers.map((r) => r.kart), dt)
-    if (racers[0]!.finished) {
-      screen = 'results'
-      renderMenu()
+    if (racers[0]!.finished && !places.includes(character(racers[0]!.charId).name)) {
+      // Vänta in alla racers
+      const allFinished = racers.every((r) => r.finished > 0)
+      if (allFinished || podiumWait > 2) {
+        screen = 'results'
+        podiumWait = 0
+        renderMenu()
+      } else {
+        podiumWait += dt
+      }
+    } else {
+      podiumWait = 0
     }
   }
 
   function paint(): void {
     if (!ctx || screen !== 'race' || !track) return
-      const p = racers[0]!.kart
-      const fog = items.fogUntil[0]! > now
-      drawWorld(ctx, track, p.x, p.y, p.angle, fog)
-      const order = [...racers].sort((a, b) => {
-        const pa = projectScore(a)
-        const pb = projectScore(b)
-        return pb - pa
-      })
-      const sortedDraw = [...racers].sort((a, b) => {
-        const da = dist(a.kart.x, a.kart.y, p.x, p.y)
-        const db = dist(b.kart.x, b.kart.y, p.x, p.y)
-        return db - da
-      })
-      for (const r of sortedDraw) {
-        drawKart(ctx, r.kart, character(r.charId), p.x, p.y, p.angle, r === racers[0])
-      }
-      const place = order.findIndex((r) => r === racers[0]) + 1
-      const held = items.held[0]
-      drawHud(ctx, {
-        lap: racers[0]!.laps + 1,
-        laps: LAPS,
-        place,
-        item: held ? ITEM_LABEL[held] : null,
-        trackName: track.name,
-        finished: !!racers[0]!.finished,
-      })
+    const p = racers[0]!.kart
+    const fog = items.fogUntil[0]! > now
+    drawWorld(ctx, track, p.x, p.y, p.angle, fog)
+
+    // Rita item-boxar på banan (syns i världen)
+    for (const wp of track.items) {
+      const ip = project(wp.x, wp.y, p.x, p.y, p.angle)
+      if (!ip) continue
+      drawItemBox(ctx, ip.sx, ip.sy, ip.scale)
+    }
+
+    const order = [...racers].sort((a, b) => {
+      const pa = projectScore(a)
+      const pb = projectScore(b)
+      return pb - pa
+    })
+    const sortedDraw = [...racers].sort((a, b) => {
+      const da = dist(a.kart.x, a.kart.y, p.x, p.y)
+      const db = dist(b.kart.x, b.kart.y, p.x, p.y)
+      return db - da
+    })
+    for (const r of sortedDraw) {
+      drawKart(ctx, r.kart, character(r.charId), p.x, p.y, p.angle, r === racers[0])
+    }
+    const place = order.findIndex((r) => r === racers[0]) + 1
+    const held = items.held[0]
+    drawHud(ctx, {
+      lap: racers[0]!.laps + 1,
+      laps: LAPS,
+      place,
+      item: held ? ITEM_LABEL[held] : null,
+      trackName: track.name,
+      finished: !!racers[0]!.finished,
+    })
+
+    // Rita countdown
+    if (countdown === 'countdown') {
+      const num = Math.ceil(countdownTimer)
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 72px ui-rounded, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText(String(num), W / 2, H / 2 + 20)
+      ctx.textAlign = 'left'
+    } else if (countdown === 'go') {
+      ctx.fillStyle = '#ffd700'
+      ctx.font = 'bold 56px ui-rounded, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.fillText('KÖR!', W / 2, H / 2 + 18)
+      ctx.textAlign = 'left'
+    }
+
+    // Rita minikarta
+    drawMinimap(ctx, track, racers, p)
+
+    // Rita synliga touch-knappar
+    drawTouchButtons(ctx)
   }
 
   function projectScore(r: Racer): number {

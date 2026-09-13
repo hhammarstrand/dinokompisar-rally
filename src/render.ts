@@ -378,6 +378,63 @@ export function drawKart(
   ctx.restore()
 }
 
+export function drawItemBox(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
+  const s = 8 * scale
+  ctx.fillStyle = '#ffd700'
+  ctx.strokeStyle = '#a06030'
+  ctx.lineWidth = 1.5
+  ctx.beginPath()
+  ctx.roundRect(x - s, y - s * 0.7, s * 2, s * 1.4, 3)
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = '#fff'
+  ctx.font = `bold ${Math.max(8, Math.round(s))}px ui-rounded, system-ui`
+  ctx.textAlign = 'center'
+  ctx.fillText('?', x, y + s * 0.25)
+  ctx.textAlign = 'left'
+}
+
+export function drawMinimap(ctx: CanvasRenderingContext2D, track: Track, racers: { kart: { x: number; y: number } }[], _p: { x: number; y: number }): void {
+  const size = 100
+  const margin = 8
+  const mx = W - size - margin
+  const my = H - size - margin
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'
+  ctx.fillRect(mx, my, size, size)
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'
+  ctx.lineWidth = 1
+  ctx.strokeRect(mx, my, size, size)
+
+  const scale = (size - 16) / track.size
+  const ox = mx + 8
+  const oy = my + 8
+
+  // Rita banan som linjer mellan waypoints
+  ctx.strokeStyle = 'rgba(200,200,200,0.6)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  for (let i = 0; i < track.waypoints.length; i++) {
+    const wp = track.waypoints[i]!
+    const wx = ox + wp.x * scale
+    const wy = oy + wp.y * scale
+    if (i === 0) ctx.moveTo(wx, wy)
+    else ctx.lineTo(wx, wy)
+  }
+  ctx.closePath()
+  ctx.stroke()
+
+  // Rita racers som prickar
+  for (let i = 0; i < racers.length; i++) {
+    const r = racers[i]!
+    const rx = ox + r.kart.x * scale
+    const ry = oy + r.kart.y * scale
+    ctx.fillStyle = i === 0 ? '#ffd700' : '#ff6b6b'
+    ctx.beginPath()
+    ctx.arc(rx, ry, i === 0 ? 4 : 3, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
 export function drawHud(
   ctx: CanvasRenderingContext2D,
   opts: {
@@ -587,6 +644,77 @@ export function drawPortrait(
     ctx.beginPath()
     ctx.ellipse(cx - s * 0.05, cy + s * 0.22, s * 0.34, s * 0.24, 0, 0, Math.PI * 2)
     ctx.fill()
+  }
+}
+
+export const TOUCH_BTN_Y = H - 60
+export const TOUCH_BTN_H = 50
+
+export function drawTouchButtons(ctx: CanvasRenderingContext2D): void {
+  const bw = 70
+  const bh = TOUCH_BTN_H
+  const gap = 10
+  const totalW = 4 * bw + 3 * gap
+  const startX = (W - totalW) / 2
+  const y = TOUCH_BTN_Y
+
+  const buttons = [
+    { label: '<', color: '#6baed6' },
+    { label: 'V', color: '#fd8d3c' },
+    { label: '^', color: '#74a059' },
+    { label: '>', color: '#6baed6' },
+  ]
+
+  for (let i = 0; i < buttons.length; i++) {
+    const b = buttons[i]!
+    const bx = startX + i * (bw + gap)
+    ctx.fillStyle = b.color
+    ctx.beginPath()
+    ctx.roundRect(bx, y, bw, bh, 8)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'
+    ctx.lineWidth = 2
+    ctx.stroke()
+    ctx.fillStyle = '#fff'
+    ctx.font = 'bold 24px ui-rounded, system-ui'
+    ctx.textAlign = 'center'
+    ctx.fillText(b.label, bx + bw / 2, y + bh / 2 + 8)
+  }
+
+  // Item-knapp (höger om de fyra)
+  const itemX = W - 90
+  const itemY = H - 100
+  ctx.fillStyle = '#e5986b'
+  ctx.beginPath()
+  ctx.roundRect(itemX, itemY, 80, 70, 10)
+  ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.fillStyle = '#fff'
+  ctx.font = 'bold 20px ui-rounded, system-ui'
+  ctx.textAlign = 'center'
+  ctx.fillText('ITEM', itemX + 40, itemY + 45)
+}
+
+export function getTouchButtons(): {
+  left: { x: number; y: number; w: number; h: number }
+  right: { x: number; y: number; w: number; h: number }
+  up: { x: number; y: number; w: number; h: number }
+  item: { x: number; y: number; w: number; h: number }
+} {
+  const bw = 70
+  const bh = TOUCH_BTN_H
+  const gap = 10
+  const totalW = 4 * bw + 3 * gap
+  const startX = (W - totalW) / 2
+  const y = TOUCH_BTN_Y
+
+  return {
+    left: { x: startX, y, w: bw, h: bh },
+    right: { x: startX + 3 * (bw + gap), y, w: bw, h: bh },
+    up: { x: startX + bw + gap, y, w: bw, h: bh },
+    item: { x: W - 90, y: H - 100, w: 80, h: 70 },
   }
 }
 
